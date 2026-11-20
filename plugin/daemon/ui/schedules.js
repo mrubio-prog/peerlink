@@ -1,10 +1,25 @@
+// schedules.js: the Schedules page, prompts the daemon sends an agent at a time or on a repeat. #schedules/<cid>
+// opens that schedule.
+PL.page('schedules',{title:'Schedules',
+  html:`<h1>Schedules</h1><p class="lead">Prompts the daemon sends an agent at a time or on a repeat, even with no terminal open.</p>
+<details class="how"><summary>How schedules work</summary><p>Prompts the daemon sends an agent at a time or on a repeat, with no terminal open. A schedule is for one agent: it goes to that agent wherever it runs, never to another in its folder. When it isn't running, the run waits for it, or the agent is started again in its folder. Agents add them with their <span class="mono">schedule</span> tool; one that may start an agent waits for your approval. Edit any of them here.</p></details>
+<details class="plat" id="schedadd"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg></span><span class="ptitle"><b>Add a schedule</b><span class="psub">A prompt for one agent, once or on a repeat</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody" style="padding-top:12px">
+<form id="schedform"><div class="addline"><select name="target" class="grow" id="schedagents" required></select>
+<input name="when" type="text" placeholder="0 9 * * 1-5, or in 2h" title="A cron (minute hour day month weekday) repeats; 'in 30m', 'in 2h', 'in 1d' or 2026-10-25 09:00 runs once" style="width:190px"></div>
+<textarea name="prompt" rows="2" placeholder="What the agent should do when it runs" style="margin-top:8px;width:100%"></textarea>
+<input name="prompt_file" type="text" placeholder="Playbook file, read fresh at each run (optional): ~/Repos/app/PLAYBOOK.md" style="margin-top:8px">
+<div class="addline" style="margin-top:8px"><label class="check small"><input type="checkbox" name="start" checked> Start it when it isn&#39;t running</label><button type="submit">Add schedule</button><span class="small" id="schedmsg"></span></div></form></div></details>
+<div id="schedlist" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>`,
+  count:st=>st.schedules.filter(c=>c.status==='active'||c.status==='pending').length||'',
+  render:(st,route)=>renderSchedules(false,route)});
+let shownSched='';
 // Schedules: what's active or waiting first; the ones that ended fold away. Each says who'd get it now.
-let allSched=[],schedEdit='';
+let schedEdit='';
 const openSched=new Set(),SCHED_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"/></svg>';
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches?.('details.sched'))return;d.open?openSched.add(d.dataset.sched):openSched.delete(d.dataset.sched)},true);
-function renderSchedules(force){
+function renderSchedules(force,rt=PL.route){
+  if(rt.id&&shownSched!==rt.id)openSched.add(rt.id);
   const live=c=>c.status==='active'||c.status==='pending';
-  $('#n-sched').textContent=allSched.filter(live).length||'';
   // Pick an agent, by name: several can share a folder.
   const agents=livePeers.filter(x=>!x.remote).sort((a,b)=>a.name.localeCompare(b.name));
   const opts=(cur,extra='')=>extra+agents.map(x=>`<option value="${esc(x.name)}" ${x.name===cur?'selected':''}>${esc(x.name)} · ${esc(tilde(x.cwd))}</option>`).join('');
@@ -17,7 +32,7 @@ function renderSchedules(force){
   const actions=c=>btn('data-schededit',c.id,'Edit')+(c.status==='pending'?`<button class="ghost small" data-schedok="${esc(c.id)}" data-act="approve">Approve</button><button class="ghost small" data-schedok="${esc(c.id)}" data-act="deny">Deny</button>`
     :c.status==='active'?btn('data-schedcancel',c.id,'Cancel','danger'):['cancelled','denied','expired'].includes(c.status)?btn('data-schedon',c.id,'Enable again'):'');
   // Who gets it: the agent named while it runs in the folder, else the folder's agent, else a new one or none.
-  const route=c=>c.goes_to?`goes to <b>${esc(c.goes_to)}</b>`
+  const route=c=>c.goes_to?`goes to <b>${PL.agentLink(c.goes_to)}</b>`
     :c.agent?`<span style="color:var(--warn)">${esc(c.agent)} isn't running</span>: ${c.start?`starts it again in ${esc(tilde(c.folder))}`:'the run waits an hour for it'}`
     :c.start?`no agent running there: starts one`:`no agent running there: waits for one`;
   const card=c=>schedEdit===c.id?`<form class="card" data-schedform="${esc(c.id)}"><div class="addline"><b>${esc(c.id)}</b><span class="chip">${esc(c.status)}</span>
@@ -32,11 +47,13 @@ function renderSchedules(force){
       <span class="ptitle"><b>${esc(c.agent||tilde(c.folder))} <span class="mut" style="font-weight:400">· ${esc(c.when_text)}</span></b><span class="psub">${esc(c.prompt.replace(/\s+/g,' ').slice(0,160))}</span></span>
       <span class="pstate">${c.status==='active'?'':`<span class="pill${c.status==='pending'?' warn':''}">${esc(c.status==='pending'?'needs approval':c.status)}</span>`}<span class="small mut">${c.next_run&&live(c)?'next '+when(c.next_run):c.runs?'last '+when(c.last_run):''}</span></span><span class="chev" aria-hidden="true"></span></summary>
     <div class="pbody" style="padding-top:12px"><div class="md">${md(c.prompt)}</div>${c.prompt_file?`<div class="small" style="margin-top:6px">Playbook <span class="mono">${esc(tilde(c.prompt_file))}</span>, read fresh at each run${c.book_err?` · <span style="color:var(--warn)">couldn't be read last run</span>`:''}</div>`:''}
-    <div class="small mut" style="margin-top:8px">${esc(c.id)} · ${live(c)?route(c)+' · ':''}by ${esc(c.requester?.name||'you')}${c.agent?` · in <span class="mono">${esc(tilde(c.folder))}</span>`:''}${c.runs?` · ran ${c.runs}×, last ${when(c.last_run)}${c.note?': '+esc(c.note):''}`:''}${c.status==='pending'?' · waiting for your approval':''}</div>
+    <div class="small mut" style="margin-top:8px">${esc(c.id)} · ${live(c)?route(c)+' · ':''}by ${PL.agentLink(c.requester?.id||c.requester?.name||'you',c.requester?.name||'you')}${c.agent?` · in <span class="mono">${esc(tilde(c.folder))}</span>`:''}${c.runs?` · ran ${c.runs}×, last ${when(c.last_run)}${c.note?': '+esc(c.note):''}`:''}${c.status==='pending'?' · waiting for your approval':''}</div>
     <div class="addline" style="margin-top:10px">${actions(c)}</div></div></details>`;
   const on=allSched.filter(live),ended=allSched.filter(c=>!live(c));
-  $('#schedlist').innerHTML=(on.map(card).join('')||'<div class="empty">No schedules running.</div>')
-    +(ended.length?`<details ${ended.some(c=>c.id===schedEdit)?'open':''}><summary class="small mut" style="cursor:pointer;margin-top:4px">Ended (${ended.length})</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${ended.map(card).join('')}</div></details>`:'')}
+  PL.paint($('#schedlist'),(on.map(card).join('')||'<div class="empty">No schedules running.</div>')
+    +(ended.length?`<details ${ended.some(c=>c.id===schedEdit||c.id===rt.id&&shownSched!==rt.id)?'open':''}><summary class="small mut" style="cursor:pointer;margin-top:4px">Ended (${ended.length})</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${ended.map(card).join('')}</div></details>`:''))
+  if(rt.id&&shownSched!==rt.id){const d=document.querySelector(`#schedlist [data-sched="${CSS.escape(rt.id)}"]`);if(d){shownSched=rt.id;d.open=true;d.classList.add('focus');d.scrollIntoView({block:'center'})}}
+  if(!rt.id)shownSched=''}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-schededit]');if(!b)return;schedEdit=b.dataset.schededit;renderSchedules(true)});
 document.addEventListener('submit',async e=>{const f=e.target.closest('[data-schedform]');if(!f)return;e.preventDefault();const v=n=>f.elements[n].value.trim();
   const w=v('when'),cron=/^\S+\s+\S+\s+\S+\s+\S+\s+\S+$/.test(w)&&!/^in\s/i.test(w)&&!/^\d{4}-/.test(w);

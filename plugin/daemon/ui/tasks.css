@@ -1,0 +1,17 @@
+/* tasks.css: the Tasks page's own rules, each under #page-tasks (or body[data-page="tasks"]). */
+#page-tasks .board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:start;margin-bottom:16px}
+#page-tasks .lane-h{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:8px 0}
+#page-tasks .col{background:color-mix(in srgb,var(--line) 35%,transparent);border-radius:var(--r16);padding:8px;min-height:80px;display:flex;flex-direction:column;gap:8px;border:1px solid transparent}
+#page-tasks .col-h{font-size:13px;font-weight:600;color:var(--fg2);display:flex;justify-content:space-between;align-items:center;padding:2px 6px;min-height:32px}
+#page-tasks .col.can{border-color:var(--acc);border-style:dashed}#page-tasks .col.over,#page-tasks .tdrop .agent.over{background:var(--acc-tint);border-color:var(--acc)}
+#page-tasks .col.shut{min-width:140px;max-width:150px}#page-tasks .col.shut .tcard{display:none}#page-tasks .col.shut.open{max-width:none;min-width:200px}#page-tasks .col.shut.open .tcard{display:block}
+#page-tasks .col-h button{min-height:32px;padding:0 6px;margin-left:-6px;font:inherit;color:inherit;background:none;box-shadow:none;border-radius:var(--r10)}
+#page-tasks .tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r12);box-shadow:var(--shadow-sm);padding:10px 12px;font-size:14px;cursor:grab}
+#page-tasks .tcard.focus,#page-tasks .task.focus{box-shadow:0 0 0 2px var(--acc)}
+#page-tasks .tcard.dragging{opacity:.4}#page-tasks .tcard .tt{font-weight:600;line-height:1.35}#page-tasks .tcard .meta{font-size:13px;color:var(--mut);margin-top:4px}#page-tasks .tcard .meta.by{display:flex;gap:8px}#page-tasks .tcard .meta.by>span:first-child{min-width:0}#page-tasks .tcard .meta.by .age{margin-left:auto;white-space:nowrap}#page-tasks .col .none{font-size:13px;color:var(--mut);padding:4px 6px}
+#page-tasks .tcard .bar{height:6px;border-radius:999px;background:var(--well);margin-top:6px;overflow:hidden}#page-tasks .tcard .bar i{display:block;height:100%;background:var(--ok-solid)}
+#page-tasks .tcard .more{display:none;margin-top:8px}#page-tasks .tcard.open .more{display:block}#page-tasks .tcard .more .tact{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}#page-tasks .tcard .more select{width:auto;max-width:100%}
+#page-tasks .tdrop{display:none;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px;font-size:13px;color:var(--mut)}#page-tasks .tdrop.on{display:flex}
+#page-tasks .tdrop .agent{border:1px dashed var(--line);border-radius:999px;padding:6px 12px;color:var(--fg)}
+@media (max-width:760px){#page-tasks .board{grid-template-columns:1fr}#page-tasks .col.shut{max-width:none}#page-tasks .col{min-height:0}}
+#page-tasks #newtask{max-width:640px;margin:0 0 16px;display:flex;flex-direction:column;gap:10px}#page-tasks #newtask select{width:100%}#page-tasks #newtask label{margin:0;display:flex;flex-direction:column;gap:6px}

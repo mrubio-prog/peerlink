@@ -1,0 +1,5 @@
+/* schedules.css: the Schedules page's own rules, each under #page-schedules (or body[data-page="schedules"]). */
+#page-schedules #schedlist details.plat{max-width:none;margin:0}#page-schedules #schedadd{max-width:none}
+#page-schedules details.sched.focus{box-shadow:0 0 0 2px var(--acc)}
+#page-schedules form .chip{height:22px;padding:0 8px;font-size:12px;font-weight:500;cursor:default}
+#page-schedules #schedlist>details>summary{min-height:44px;display:flex;align-items:center}

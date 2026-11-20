@@ -1,179 +1,26 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Peerlink</title><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23c96442'/><path d='M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#141210" media="(prefers-color-scheme: dark)">
+<title>Peerlink</title><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23059669'/><path d='M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <!--STYLE-->
-</head><body><div class="app">
-<nav>
-<div class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--acc)"/><path d="M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Peerlink</div><div class="host" id="hostline"></div>
-<a href="#inbox" data-nav="inbox">Inbox <span class="count hot" id="n-inbox"></span></a>
-<a href="#agents" data-nav="agents">Agents <span class="count" id="n-agents"></span></a>
-<a href="#tasks" data-nav="tasks">Tasks <span class="count" id="n-tasks"></span></a>
-<a href="#schedules" data-nav="schedules">Schedules <span class="count" id="n-sched"></span></a>
-<a href="#messages" data-nav="messages">Messages <span class="count" id="n-msgs"></span></a>
-<div class="grp" aria-hidden="true">Set up</div>
-<a href="#spaces" data-nav="spaces">Spaces <span class="count" id="n-spaces"></span></a>
-<a href="#rules" data-nav="rules">Rules <span class="count" id="n-rules"></span></a>
-<a href="#channels" data-nav="channels">Channels <span class="count" id="n-discord"></span></a>
-<div class="grp" aria-hidden="true">Peerlink</div>
-<a href="#feedback" data-nav="feedback">Feedback <span class="count" id="n-feedback"></span></a>
-<a href="#settings" data-nav="settings">Settings</a>
-<a href="#controls" data-nav="controls">Controls</a>
-</nav>
-<main><div id="limitbar" style="display:none" class="small"></div><div id="stalebar" style="display:none" class="small"></div><div id="offline"><span id="offwhy">Can't reach the peerlink daemon. This page reconnects once it's back.</span></div><div id="signedout">Signed out. Run <span class="mono">/peerlink web</span> in any agent to sign in again.</div>
-
-<section id="agents"><h1>Agents</h1><p class="lead">Your live agents, by space. Click one to see or change it.</p>
-<div class="msgbar"><span class="seg" role="group" aria-label="Layout"><button class="ghost small" data-alayout="chart">Chart</button><button class="ghost small" data-alayout="list">List</button></span>
-<input id="asearch" class="search" type="search" placeholder="Search agents" title="Search by name, folder, branch or summary" aria-label="Search agents"></div>
-<details class="how"><summary>How it works</summary><ul>
-<li>Each space shows its lead first, outlined in orange, with its members beneath it. A space can sit inside another: its lead then sits with that space's agents, with its own space beneath it.</li>
-<li>Work sent to a space goes to its lead: the agent you picked, or else the one that was alone in it. Pick leads, and which space sits inside which, on the Spaces page.</li>
-<li>An agent only sees and messages agents in its own space. A lead also sees the space its space sits inside. Two agents you link (an agent's details, "Linked with") see and message each other whatever their spaces.</li>
-<li>To move an agent, open it and set its space on the Details tab. It moves alone: other agents in its folder stay where they are.</li>
-<li>The bar is how full the agent's context window is: it turns yellow past half and red past 80%. A yellow dot means it's working, a green one that it's idle. Messages an hour show only when an agent is chatty, 20 or more.</li></ul></details><div class="orgwrap"><div id="peers"></div><div id="detail"></div></div><div id="offagents"></div></section>
-
-<section id="inbox"><h1>Inbox</h1><p class="lead">Everything waiting on you, the longest waiting first. On Discord, <span class="mono">/inbox</span> shows the same list, and you answer by number, like <span class="mono">1 done</span>.</p>
-<div class="msgbar"><button class="ghost small" id="notifybtn" data-notify>Desktop alerts: off</button></div>
-<div class="mlist" id="inboxlist"></div></section>
-
-<section id="spaces"><h1>Spaces</h1>
-<p class="lead">Which agents can see and message each other.</p>
-<details class="how"><summary>How spaces work</summary><p>An agent is in the space you put its folder in, from its Details tab on the Agents page. A folder you haven't placed takes the space in the nearest <span class="mono">.peerlink</span> file at or above it, else it's <b>unassigned</b>. Here you pick each space's lead, which gets work sent to the space, and which space it sits inside: its lead then speaks for it there.</p></details>
-<div id="spacelist"></div>
-</section>
-
-<section id="rules"><h1>Rules</h1>
-<p class="lead">What you've told your agents for good. A rule reaches every agent in its space and the spaces inside it, in its instructions, so a cleared context still has it. One an agent proposes waits here for your approval.</p>
-<div id="rulelist" style="display:flex;flex-direction:column;gap:8px"></div>
-<form id="ruleform" class="addline" style="margin-top:10px"><select name="space" id="rulespace" style="width:170px"></select><input name="text" type="text" class="grow" placeholder="Never merge to main on a Friday" required maxlength="600"><button type="submit">Add rule</button><span class="small err" id="rulemsg"></span></form>
-</section>
-
-<section id="schedules"><h1>Schedules</h1><p class="lead">Prompts the daemon sends an agent at a time or on a repeat, even with no terminal open.</p>
-<details class="how"><summary>How schedules work</summary><p>Prompts the daemon sends an agent at a time or on a repeat, with no terminal open. A schedule is for one agent: it goes to that agent wherever it runs, never to another in its folder. When it isn't running, the run waits for it, or the agent is started again in its folder. Agents add them with their <span class="mono">schedule</span> tool; one that may start an agent waits for your approval. Edit any of them here.</p></details>
-<details class="plat" id="schedadd"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg></span><span class="ptitle"><b>Add a schedule</b><span class="psub">A prompt for one agent, once or on a repeat</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody" style="padding-top:12px">
-<form id="schedform"><div class="addline"><select name="target" class="grow" id="schedagents" required></select>
-<input name="when" type="text" placeholder="0 9 * * 1-5, or in 2h" title="A cron (minute hour day month weekday) repeats; 'in 30m', 'in 2h', 'in 1d' or 2026-10-25 09:00 runs once" style="width:190px"></div>
-<textarea name="prompt" rows="2" placeholder="What the agent should do when it runs" style="margin-top:8px;width:100%"></textarea>
-<input name="prompt_file" type="text" placeholder="Playbook file, read fresh at each run (optional): ~/Repos/app/PLAYBOOK.md" style="margin-top:8px">
-<div class="addline" style="margin-top:8px"><label class="check small"><input type="checkbox" name="start" checked> Start it when it isn&#39;t running</label><button type="submit">Add schedule</button><span class="small" id="schedmsg"></span></div></form></div></details>
-<div id="schedlist" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div></section>
-
-<section id="messages"><h1>Messages</h1><p class="lead">Conversations between agents, and with you on Discord, Telegram and Slack, the latest first. Open one for its whole history.</p>
-<div class="msgbar"><span class="fl"><label class="small mut" for="msgspace">Space</label><select id="msgspace"><option value="">All spaces</option></select></span>
-<span class="fl"><label class="small mut" for="msgagent">Agent</label><select id="msgagent"><option value="">Everyone</option></select></span>
-<input id="msgq" class="search" type="search" placeholder="Search messages" aria-label="Search messages">
-<label class="check small" style="margin:0"><input type="checkbox" id="msgnosched"> Hide schedule runs</label></div>
-<div class="mlist" id="msgs"></div></section>
-
-<section id="tasks"><h1>Tasks</h1><p class="lead">Work handed between agents. Click a card for details, or drag it.</p>
-<details class="how"><summary>How tasks work</summary><ul>
-<li>An agent hands out a task with <span class="mono">kind: task</span>. On Discord, start a post with <span class="mono">Task:</span>. A task stays open until its owner marks it done or failed, and whoever asked gets the owner's note.</li>
-<li>A task sent to a lead is the lead's to split up. Its subtasks count toward it.</li>
-<li>Drag a card to Cancelled to cancel it, from Done, Failed or Cancelled to Open to reopen it, or onto an agent to hand it over. Only the owner moves a task to In progress, Done or Failed. If the owner changed a task after the board was drawn, your move is refused.</li></ul></details>
-<div class="msgbar"><button class="small" data-newtask>+ New task</button><span class="seg" role="group" aria-label="Layout"><button class="ghost small" data-tlayout="board">Board</button><button class="ghost small" data-tlayout="list">List</button></span>
-<span id="tstatusw" class="fl"><label class="small mut" for="tstatus">Show</label><select id="tstatus"><option value="live">Open and in progress</option><option value="done">Done</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option><option value="">All</option></select></span>
-<span class="fl"><label class="small mut" for="towner">Owner</label><select id="towner"><option value="">Everyone</option></select></span>
-<span class="fl"><label class="small mut" for="treq">Asked by</label><select id="treq"><option value="">Anyone</option></select></span>
-<span class="fl"><label class="small mut" for="tspace">Space</label><select id="tspace"><option value="">All spaces</option></select></span>
-<span id="tgroupw" class="fl"><label class="small mut" for="tgroup">Rows</label><select id="tgroup"><option value="">One board</option><option value="space">By space</option><option value="owner">By owner</option></select></span></div>
-<form id="newtask" class="card sendbox" hidden><label>To<select name="to" required></select></label>
-<label>Task<textarea name="text" rows="3" placeholder="First line is the title. Add details below it." required></textarea></label>
-<div class="addline"><button type="submit">Send task</button><button type="button" class="ghost" data-newtask>Cancel</button><span class="small" id="newtaskmsg"></span></div></form>
-<div id="tdrop" class="tdrop"></div>
-<div class="mlist" id="tasklist"></div></section>
-
-<section id="feedback"><h1>Feedback</h1><p class="lead">Bugs and ideas agents report about peerlink. Accept one to hand it to the peerlink agent as a task.</p>
-<div class="msgbar"><span class="fl"><label class="small mut" for="fstatus">Show</label><select id="fstatus"><option value="">All, by status</option><option value="new">New</option><option value="accepted">Accepted</option><option value="done">Done</option><option value="dismissed">Dismissed</option></select></span>
-<span class="fl"><label class="small mut" for="ftype">Type</label><select id="ftype"><option value="">Bugs and ideas</option><option value="bug">Bugs</option><option value="idea">Ideas</option></select></span></div>
-<div class="mlist" id="fblist"></div></section>
-
-<section id="channels"><h1>Channels</h1>
-<p class="lead">Talk to your agents from outside the terminal.</p>
-<details class="plat" id="pdiscord"><summary><span class="plogo" style="background:#5865F2"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419z"/></svg></span><span class="ptitle"><b>Discord</b><span class="psub">Channels in your server</span></span><span class="pstate" id="dstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">Each channel you map has agents: ones that <b>receive</b> get your messages there, ones that <b>send</b> can post there. Only you, the bot's owner, can talk to them.</p>
-<ol class="steps">
-<li class="step" id="dstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the bot and paste its token</div><div id="dstep1b"></div></div></li>
-<li class="step" id="dstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Invite it to your server</div><div id="dstep2b"></div></div></li>
-<li class="step" id="dstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map channels to agents</div><p class="meta">Under <b>Channel ⇄ Agent Mappings</b>, below.</p></div></li>
-</ol><div id="dextra"></div></div></details>
-<details class="plat" id="ptelegram"><summary><span class="plogo" style="background:#26A5E4"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M4.6 11.6l13.1-5.05c.6-.22 1.13.15.93 1.06l-2.23 10.5c-.17.75-.6.93-1.23.58l-3.4-2.5-1.64 1.58c-.18.18-.33.33-.68.33l.24-3.46 6.3-5.69c.27-.24-.06-.38-.43-.14l-7.78 4.9-3.35-1.05c-.73-.23-.74-.73.15-1.07z"/></svg></span><span class="ptitle"><b>Telegram</b><span class="psub">A private chat or a group</span></span><span class="pstate" id="tgstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">A private chat with your bot, or a group it's in, works like a Discord channel. Telegram bots answer anyone who finds them, so peerlink ignores everyone until you allow them.</p>
-<ol class="steps">
-<li class="step" id="tstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the bot and paste its token</div><div id="tstep1b"></div></div></li>
-<li class="step" id="tstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Message it, then allow yourself</div><div id="tstep2b"></div></div></li>
-<li class="step" id="tstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map chats to agents</div><div id="tstep3b"></div></div></li>
-</ol></div></details>
-<details class="plat" id="pslack"><summary><span class="plogo" style="background:#4A154B"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none" d="M9 4.5v15M15 4.5v15M4.5 9h15M4.5 15h15"/></svg></span><span class="ptitle"><b>Slack</b><span class="psub">A channel or a direct message</span></span><span class="pstate" id="slstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">A channel your Slack app is in, or a direct message with it, works like a Discord channel. Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them.</p>
-<ol class="steps">
-<li class="step" id="sstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the app and paste its two tokens</div><div id="sstep1b"></div></div></li>
-<li class="step" id="sstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Message it, then allow yourself</div><div id="sstep2b"></div></div></li>
-<li class="step" id="sstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map channels to agents</div><div id="sstep3b"></div></div></li>
-</ol></div></details>
-<details class="plat" id="pagents"><summary><span class="plogo" style="background:#0F766E"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 9l-4 3 4 3M16 9l4 3-4 3M13.5 6l-3 12"/></svg></span><span class="ptitle"><b>Agents</b><span class="psub">Other AI agents, over MCP</span></span><span class="pstate" id="agstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">An agent outside this machine (any MCP client) can post to the agent you pick and read its replies, and nothing else: two tools, <span class="mono">post_message</span> and <span class="mono">read_replies</span>. Each client is a chat of its own, with its own token. Only the token's hash is kept here. Your agents can answer a client there but never start a conversation with it, and your approvals and questions never go there.</p>
-<div id="agbody"></div></div></details>
-<details class="plat" id="pmap"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3"/></svg></span><span class="ptitle"><b>Channel ⇄ Agent Mappings</b><span class="psub">Which agents hear and post in each channel</span></span><span class="pstate" id="mapstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div id="dstep3b"></div></div></details>
-<details class="plat" id="popts"><summary><span class="plogo" style="background:var(--mut)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="2"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></span><span class="ptitle"><b>Options</b><span class="psub">Progress reactions, buttons and files</span></span><span class="pstate" id="optstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div id="dmore"></div></div></details>
-</section>
-
-<section id="settings"><h1>Settings</h1><p class="lead">Changes reach every agent within a few seconds.</p>
-<form id="cfg">
-<details class="plat" id="swake"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span><span class="ptitle"><b>Waking and delivery</b><span class="psub">When a message interrupts an agent, and when it waits</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="auto_wake_idle" id="aw"><label for="aw" style="margin:0">Wake idle agents when a message arrives</label></div>
-<div class="check"><input type="checkbox" name="inject_while_busy" id="ib"><label for="ib" style="margin:0">Deliver into a running turn</label></div>
-<div class="row"><div><label for="wf">Wake an idle agent for</label><select name="wake_for" id="wf" style="width:100%"><option value="needed">Questions, tasks, your messages and answers (saves tokens)</option><option value="all">Every message</option></select></div>
-<div><label for="wd">Wait before waking for another agent's message (s)</label><input type="number" name="wake_delay_s" id="wd" min="0" max="120"></div></div>
-<div class="mut small">Each wake-up is a full turn that re-reads the agent's context. Waiting a few seconds lets messages that arrive together share one turn; your own messages never wait.</div>
-</div></details>
-<details class="plat" id="sctx"><summary><span class="plogo" style="background:#7a6ff0"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v4M12 17v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M3 12h4M17 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span><span class="ptitle"><b>Context and usage</b><span class="psub">Clearing context so it doesn't drain your usage limit</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="clear_between_tasks" id="cbt"><label for="cbt" style="margin:0">Agents clear their own context after each task, saving notes to memory first</label></div>
-<div class="row"><div><label for="tnh">Ask a task's owner where it stands after this many hours without an update (0 for never)</label><input type="number" name="task_nudge_h" id="tnh" min="0" step="12"></div><div></div></div>
-<div class="row"><div><label for="cnt">Ask an agent to save and clear once its context passes (tokens, 0 for never)</label><input type="number" name="clear_nudge_tokens" id="cnt" min="0" step="50000"></div><div></div></div>
-<div class="mut small">A large context is re-read on every turn and drains the usage limit fast. The ask arrives with the agent's next prompt, so it clears at a stopping point.</div>
-</div></details>
-<details class="plat" id="sapprove"><summary><span class="plogo" style="background:var(--ok)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></svg></span><span class="ptitle"><b>Approvals</b><span class="psub">Whether agents ask you before starting agents and schedules</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="auto_approve_all" id="aaa"><label for="aaa" style="margin:0">Let every agent start agents and schedules without asking me</label></div>
-<div class="mut small">You're still told on Discord when one does. To allow only some agents, leave this off and turn it on in an agent's Controls tab.</div>
-<div class="check" style="margin-top:10px"><input type="checkbox" name="ask_defaults" id="adf"><label for="adf" style="margin:0">Let an agent's question name a default it goes with when I don't answer in time</label></div>
-<div class="row"><div><label for="adm">The shortest wait an agent may give me (minutes)</label><input type="number" name="ask_default_min_m" id="adm" min="0" step="5"></div><div></div></div>
-<div class="mut small">The question says the default and the wait. When the wait runs out you're told under it, and a later answer from you still wins. A standing rule an agent proposes always waits for your approval.</div>
-</div></details>
-<details class="plat" id="ssee"><summary><span class="plogo" style="background:#3d8fd6"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span><span class="ptitle"><b>What agents see</b><span class="psub">The live agent list, summaries and feedback</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="roster_in_prompt" id="rp"><label for="rp" style="margin:0">Show each agent the live agent list when it changes</label></div>
-<div class="check"><input type="checkbox" name="auto_summary" id="as"><label for="as" style="margin:0">Keep agent summaries current automatically</label></div>
-<div class="row"><div><label>Summary model</label><input type="text" name="summary_model"></div><div></div></div>
-<div class="check"><input type="checkbox" name="feedback" id="fbk"><label for="fbk" style="margin:0">Agents report bugs and ideas about peerlink itself, on the Feedback page</label></div>
-<div class="mut small">For people developing peerlink. Agents started after you change this get the report_issue tool, or don't.</div>
-</div></details>
-<details class="plat" id="sguide"><summary><span class="plogo" style="background:#c58a2b"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5"/></svg></span><span class="ptitle"><b>Guidance</b><span class="psub">What every agent is told about working with its peers</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<textarea name="guidance" id="guidance" aria-label="Guidance for every agent"></textarea><div class="mut small">Leave empty to use the default, shown in grey.</div>
-</div></details>
-<details class="plat" id="slimits"><summary><span class="plogo" style="background:var(--mut)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"/></svg></span><span class="ptitle"><b>Limits and timing</b><span class="psub">Polling, timeouts and how much agents can send</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="row">
-<div><label>Poll interval (ms)</label><input type="number" name="poll_interval_ms" min="500"></div>
-<div><label>Agent timeout (s)</label><input type="number" name="peer_ttl_s" min="5"></div>
-<div><label>Max reply hops</label><input type="number" name="max_hops" min="1"></div>
-<div><label>Messages per minute per agent</label><input type="number" name="rate_limit_per_min" min="1"></div>
+</head><body>
+<header class="topbar">
+<a class="brand" href="#inbox" aria-label="Peerlink, Inbox"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--acc)"/><path d="M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Peerlink</span></a>
+<nav class="tabs" id="tabs" aria-label="Pages"></nav>
+<span class="spacer"></span>
+<div class="jump"><input id="jumpq" type="search" placeholder="Jump to agent, task, page" aria-label="Jump to an agent, task, schedule or page" autocomplete="off" spellcheck="false"><kbd>Ctrl K</kbd><div class="jump-list" id="jumplist" role="listbox"></div></div>
+<button type="button" class="icon-btn" id="jumpbtn" aria-label="Jump to an agent, task or page"></button>
+<a class="icon-btn" id="setupbtn" href="#setup" data-tab="setup" aria-label="Setup"></a>
+</header>
+<div class="banners">
+<div id="limitbar" class="banner warn" hidden></div>
+<div id="stalebar" class="banner warn" hidden></div>
+<div id="offline" class="banner bad" hidden><span id="offwhy">Can't reach the peerlink daemon. This page reconnects once it's back.</span></div>
+<div id="signedout" class="banner warn" hidden>Signed out. Run <span class="mono">/peerlink web</span> in any agent to sign in again.</div>
+<div id="pageerr" class="banner bad" hidden></div>
 </div>
-</div></details>
-<details class="plat" id="sremote"><summary><span class="plogo" style="background:#4f6b7a"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 4h14v6H5zM5 14h14v6H5zM8 7h.01M8 17h.01"/></svg></span><span class="ptitle"><b>Other machines</b><span class="psub">Linking daemons on other computers</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<label>Their daemons, one URL per line</label><textarea name="remotes" style="min-height:60px"></textarea>
-<div class="row"><div><label>Listen host (0.0.0.0 to accept other machines; needs a restart)</label><input type="text" name="listen_host"></div>
-<div><label>Shared token</label><input type="text" name="token"></div></div>
-<label>This machine's web UI name (like peerlink.local; empty is off; needs a restart)</label><input type="text" name="local_name">
-</div></details>
-<p class="savebar"><button type="submit">Save</button> <span class="mut small" id="saved"></span></p>
-</form></section>
-
-<section id="controls"><h1>Controls</h1><p class="lead">Sign-in, the key, and the daemon.</p>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#3d8fd6"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg></span><span class="ptitle"><b>Browsers</b><span class="psub"><span id="browsers"></span></span></span><span class="pact"><button class="ghost" data-act="logout">Sign out here</button> <button class="ghost" data-act="logout-all">Sign out everywhere</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#c58a2b"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15.5 7.5a4.5 4.5 0 1 1-6.36 6.36A4.5 4.5 0 0 1 15.5 7.5zM15.5 7.5 21 2M18 5l2 2"/></svg></span><span class="ptitle"><b>Key</b><span class="psub">Agents and sign-in links use the key in <span class="mono" id="keypath"></span>. Rotating it signs out every browser.</span></span><span class="pact"><button class="ghost" data-act="rotate">Rotate key</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></span><span class="ptitle"><b>Daemon</b><span class="psub">Agents reconnect by themselves after a restart. Queued messages are kept.</span></span><span class="pact"><button class="ghost" data-act="restart">Restart daemon</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#c0563f"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span><span class="ptitle"><b>Start clean</b><span class="psub">Clear what you tick. Rules, settings, chat channels, outside clients and the key stay. Running agents stay, and the files are copied to a backup first.</span>
-<span class="cleanparts"><label><input type="checkbox" data-clean="spaces"> Spaces, leads and links</label> <label><input type="checkbox" data-clean="agents"> Offline agents</label> <label><input type="checkbox" data-clean="history"> Message history</label> <label><input type="checkbox" data-clean="tasks"> Tasks</label> <label><input type="checkbox" data-clean="schedules"> Schedules</label></span></span><span class="pact"><button class="ghost" data-act="clean">Start clean</button></span></div></div>
-<p class="mut small" id="ctlmsg"></p></section>
-</main></div>
+<main id="main"><div id="nopage" hidden></div></main>
+<nav class="tabbar" id="tabbar" aria-label="Pages"></nav>
+<div id="sheets"></div><div id="toasts" class="toasts" aria-live="polite"></div>
 <!--SCRIPTS-->
 </body></html>

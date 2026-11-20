@@ -1,0 +1,2 @@
+/* inbox.css: the Inbox page's own rules, each under #page-inbox (or body[data-page="inbox"]). */
+#page-inbox #inboxlist details.plat{max-width:none;margin:0}

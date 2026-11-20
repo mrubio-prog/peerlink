@@ -1,9 +1,25 @@
+// messages.js: the Messages page, conversations between agents and with you. #messages/<conversation key> or
+// #messages/<message id> opens that conversation.
+PL.page('messages',{title:'Messages',
+  html:`<h1>Messages</h1><p class="lead">Conversations between agents, and with you on Discord, Telegram and Slack, the latest first. Open one for its whole history.</p>
+<div class="msgbar"><span class="fl"><label class="small mut" for="msgspace">Space</label><select id="msgspace"><option value="">All spaces</option></select></span>
+<span class="fl"><label class="small mut" for="msgagent">Agent</label><select id="msgagent"><option value="">Everyone</option></select></span>
+<input id="msgq" class="search" type="search" placeholder="Search messages" aria-label="Search messages">
+<label class="check small" style="margin:0"><input type="checkbox" id="msgnosched"> Hide schedule runs</label></div>
+<div class="mlist" id="msgs"></div>`,
+  render:(st,route)=>{lastMsgs=st.messages;openRoute(route);renderMessages(lastMsgs,route)}});
+let shownConv='';
+// The route names a conversation (its key) or a message in one (m123): open that conversation, once.
+function openRoute(route){if(!route.id||shownConv===route.id)return;let key=route.id;
+  if(/^m\d+$/.test(key)){const x=lastMsgs.find(m=>m.id===key);if(!x)return;key=[partyOf(x,'from'),partyOf(x,'to')].sort().join('|')}
+  openConvs.add(key);routeConv=key}
+let routeConv='';
 // Messages as a conversation: newest first, each reply under the message it answers.
 let msgFilter='',spaceFilter='';
 // A message's spaces: what it recorded when sent, else (older messages) the space of a live agent on either end.
 const spacesOf=x=>{const by=n=>livePeers.find(p=>p.name===n)?.space;return [x.from_space||by(x.from_name),x.to_space||by(x.to_name)].filter(Boolean)};
-function renderMessages(list){
-  const opts=(el,all,vals)=>{const keep=el.value;el.innerHTML=`<option value="">${all}</option>`+vals.map(n=>`<option ${n===keep?'selected':''}>${esc(n)}</option>`).join('')};
+function renderMessages(list,route=PL.route){
+  const opts=(el,all,vals)=>{if(document.activeElement===el)return;const keep=el.value;el.innerHTML=`<option value="">${all}</option>`+vals.map(n=>`<option ${n===keep?'selected':''}>${esc(n)}</option>`).join('')};
   opts($('#msgspace'),'All spaces',[...new Set(list.flatMap(spacesOf))].sort());
   const inSpace=list.filter(x=>!spaceFilter||spacesOf(x).includes(spaceFilter));
   opts($('#msgagent'),'Everyone',[...new Set(inSpace.flatMap(x=>[x.from_name,x.to_name]))].sort());
@@ -24,8 +40,9 @@ function renderMessages(list){
       <span class="psub">${esc(c.last.from_name)}: ${esc(plain(c.last.text).slice(0,140))}</span></span>
       <span class="pstate">${pending?`<span class="pill warn">${pending} queued</span>`:''}${waiting?'<span class="pill">reply expected</span>':''}<span class="small mut">${when(c.last.ts)}</span></span><span class="chev" aria-hidden="true"></span></summary>
       <div class="pbody convbody">${body}</div></details>`}).join('');
-  $('#msgs').innerHTML=html||'<div class="empty">No messages yet.</div>';
-  document.querySelectorAll('#msgs .convbody').forEach(el=>el.scrollTop=el.scrollHeight);
+  if(PL.paint($('#msgs'),html||PL.empty({icon:'messages',title:'No messages yet',text:'Conversations between your agents, and with you, show up here.'})))document.querySelectorAll('#msgs .convbody').forEach(el=>el.scrollTop=el.scrollHeight);
+  if(route.id&&shownConv!==route.id&&routeConv){const d=document.querySelector(`#msgs details.conv[data-conv="${CSS.escape(routeConv)}"]`);if(d){shownConv=route.id;d.classList.add('focus');d.scrollIntoView({block:'start'})}}
+  if(!route.id){shownConv='';routeConv=''}
   for(const c of rows)if(openConvs.has(c.key)&&(!convHist[c.key]||convHist[c.key].last!==c.last.id))loadConv(c.key,c.a,c.b,c.last.id);
 }
 const when=ts=>new Date(ts*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
@@ -34,8 +51,8 @@ const partyOf=(x,side)=>{const who=String(x[side]||'');return who.startsWith('di
 const partyLabel=(key,name)=>{if(!key.startsWith('discord:'))return `<b>${esc(name)}</b>`;
   return `${platLogo(key.slice(8))}<b>${esc(String(name).replace(/^#/,'').replace(/ on (Discord|Telegram|Slack)$/,''))}</b>`};
 function convLine(x,c){const st=x.status==='delivered'?'':`<span class="chip ${esc(x.status)}">${esc(x.status)}</span>`;
-  return `<div class="cline${partyOf(x,'from')===c.a?'':' other'}${openLines.has(x.id)?' open':''}" data-line="${esc(x.id)}"><div class="mh"><b>${esc(x.from_name)}</b>
-    ${x.kind==='announcement'?`<span class="chip reply">announcement · ${(x.recipients||[]).length} agents</span>`:''}${x.task?`<span class="chip reply">task ${esc(x.task)}</span>`:x.expects_reply?'<span class="chip">reply expected</span>':''}${x.reply_to?`<span class="chip reply">re ${esc(x.reply_to)}</span>`:''}${st}
+  return `<div class="cline${partyOf(x,'from')===c.a?'':' other'}${openLines.has(x.id)?' open':''}" data-line="${esc(x.id)}"><div class="mh"><b>${PL.agentLink(x.from_name)}</b>
+    ${x.kind==='announcement'?`<span class="chip reply">announcement · ${(x.recipients||[]).length} agents</span>`:''}${x.task?`<span class="chip reply">task ${PL.taskLink(x.task)}</span>`:x.expects_reply?'<span class="chip">reply expected</span>':''}${x.reply_to?`<span class="chip reply">re ${PL.msgLink(x.reply_to)}</span>`:''}${st}
     <span class="when">${when(x.ts)} · ${esc(x.id)}</span></div><div class="mt md">${md(x.text)}</div></div>`}
 const openConvs=new Set(),convHist={},openLines=new Set();
 // Schedule runs are hidden unless you've asked to see them.
@@ -53,3 +70,5 @@ document.addEventListener('change',e=>{
   if(e.target.id==='msgagent'){msgFilter=e.target.value;renderMessages(lastMsgs)}
   if(e.target.id==='msgnosched'){try{localStorage.setItem('pl.msg.nosched',e.target.checked?'1':'0')}catch(err){}renderMessages(lastMsgs)}
   if(e.target.id==='msgspace'){spaceFilter=e.target.value;msgFilter='';$('#msgagent').value='';renderMessages(lastMsgs)}});
+
+document.addEventListener('input',e=>{if(e.target.id==='msgq')renderMessages(lastMsgs)});

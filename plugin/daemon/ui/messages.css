@@ -1,0 +1,12 @@
+/* messages.css: the Messages page's own rules, each under #page-messages (or body[data-page="messages"]). */
+#page-messages details.conv{max-width:none;margin:0}#page-messages details.conv .cnames{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#page-messages details.conv .psub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-messages details.conv .pstate{flex-wrap:nowrap}#page-messages details.conv.focus{box-shadow:0 0 0 2px var(--acc)}
+#page-messages .convbody{display:flex;flex-direction:column;gap:10px;padding-top:12px!important;max-height:70vh;overflow:auto}
+#page-messages .cline{border-left:3px solid var(--acc);padding:4px 0 4px 12px}#page-messages .cline.other{border-left-color:var(--line)}#page-messages .cline .mh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+#page-messages .cline .mh .when{margin-left:auto;color:var(--mut);font-size:12px}
+#page-messages .cline .mt{margin-top:4px;max-height:7.4em;overflow:hidden;cursor:pointer;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+#page-messages .cline.open .mt{max-height:none;cursor:auto;-webkit-mask-image:none;mask-image:none}
+#page-messages .cline .chip{height:22px;padding:0 8px;font-size:12px;font-weight:500;border-radius:999px;background:var(--well);color:var(--mut);box-shadow:inset 0 0 0 1px var(--line);cursor:default}
+#page-messages .cline .chip.reply{background:var(--acc-tint);color:var(--acc-ink);box-shadow:inset 0 0 0 1px var(--focus)}
+#page-messages .cline .chip.queued{background:var(--warn-bg);color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn-ring)}
+#page-messages .cline .chip.expired{background:var(--bad-bg);color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad-ring)}
