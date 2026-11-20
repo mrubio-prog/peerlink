@@ -1,12 +1,115 @@
-/* messages.css: the Messages page's own rules, each under #page-messages (or body[data-page="messages"]). */
-#page-messages details.conv{max-width:none;margin:0}#page-messages details.conv .cnames{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#page-messages details.conv .psub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#page-messages details.conv .pstate{flex-wrap:nowrap}#page-messages details.conv.focus{box-shadow:0 0 0 2px var(--acc)}
-#page-messages .convbody{display:flex;flex-direction:column;gap:10px;padding-top:12px!important;max-height:70vh;overflow:auto}
-#page-messages .cline{border-left:3px solid var(--acc);padding:4px 0 4px 12px}#page-messages .cline.other{border-left-color:var(--line)}#page-messages .cline .mh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
-#page-messages .cline .mh .when{margin-left:auto;color:var(--mut);font-size:12px}
-#page-messages .cline .mt{margin-top:4px;max-height:7.4em;overflow:hidden;cursor:pointer;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
-#page-messages .cline.open .mt{max-height:none;cursor:auto;-webkit-mask-image:none;mask-image:none}
-#page-messages .cline .chip{height:22px;padding:0 8px;font-size:12px;font-weight:500;border-radius:999px;background:var(--well);color:var(--mut);box-shadow:inset 0 0 0 1px var(--line);cursor:default}
-#page-messages .cline .chip.reply{background:var(--acc-tint);color:var(--acc-ink);box-shadow:inset 0 0 0 1px var(--focus)}
-#page-messages .cline .chip.queued{background:var(--warn-bg);color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn-ring)}
-#page-messages .cline .chip.expired{background:var(--bad-bg);color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad-ring)}
+/* messages.css: the Messages page's own rules, each under #page-messages (or body[data-page="messages"]).
+   List + detail from 900px: conversations on the left, the open thread on the right, each scrolling on its own.
+   Below 900px they are two screens (.mx.open shows the thread). */
+@media (min-width:900px){body[data-page="messages"] main{max-width:1280px;padding-bottom:24px}}
+#page-messages .mx-head{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+#page-messages .mx-head h1{flex:1;margin:0}
+#page-messages .mx-help{font:700 18px var(--font);color:var(--fg2)}
+#page-messages .mx{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);height:calc(100dvh - var(--bar-h) - 124px);min-height:480px;
+  background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:var(--r16);box-shadow:var(--shadow-sm);overflow:hidden}
+#page-messages .mx-list{display:flex;flex-direction:column;min-height:0;min-width:0;border-right:1px solid var(--line)}
+#page-messages .mx-tools{display:flex;flex-direction:column;gap:10px;padding:12px;border-bottom:1px solid var(--hair)}
+#page-messages .mx-tools .chips{gap:6px}
+#page-messages .chip .mx-n{min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-grid;place-items:center;font-size:12px;background:var(--warn-solid);color:#fff}
+#page-messages .chip .mx-x{display:inline-flex;margin-right:-4px;opacity:.75}
+#page-messages .chip[data-mxagent][aria-pressed=false] .mx-x{transform:rotate(90deg)}
+#page-messages .mx-scroll{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+
+/* Conversation rows */
+#page-messages .mxrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;min-height:64px;
+  border-top:1px solid var(--hair);color:var(--fg);text-decoration:none;transition:background-color .15s var(--ease)}
+#page-messages .mxrows>.mxrow:first-child{border-top:0}
+#page-messages .mxrow.on{background:var(--acc-tint)}
+#page-messages .mxrow:active{background:var(--well)}
+@media (hover:hover){#page-messages .mxrow:not(.on):hover{background:var(--well)}}
+#page-messages .mxrow-av{padding-top:2px}
+#page-messages .mxrow-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+#page-messages .mxrow-t{display:flex;align-items:center;gap:6px;min-width:0;font-size:15px;line-height:1.3;white-space:nowrap;overflow:hidden}
+#page-messages .mxrow-t b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+#page-messages .mxrow-s{font-size:13px;line-height:1.4;color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#page-messages .mxrow-b{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+#page-messages .mxrow-time{font-size:12px;color:var(--mut);white-space:nowrap;padding-top:2px;font-variant-numeric:tabular-nums}
+#page-messages .mx-you{font-weight:600;color:var(--fg2)}
+#page-messages .mx-arrow{color:var(--faint);font-weight:400}
+#page-messages .mxrow-av,#page-messages .mxth-av{display:inline-grid;place-items:center;width:48px;flex:none}
+#page-messages .mx-pair{position:relative;display:inline-block;width:calc(var(--av)*1.2);height:var(--av);flex:none}
+#page-messages .mx-pair>:first-child{position:absolute;left:0;top:0}
+#page-messages .mx-pair>:last-child{position:absolute;right:0;bottom:0;box-shadow:0 0 0 2px var(--surface)}
+#page-messages .mxrow.on .mx-pair>:last-child{box-shadow:0 0 0 2px var(--acc-tint)}
+#page-messages .mx-chan{display:inline-grid;place-items:center;width:var(--av);height:var(--av);flex:none}
+#page-messages .mx-chan .mlogo{width:100%;height:100%;border-radius:30%}
+#page-messages .mx-chan .mlogo svg{width:58%;height:58%}
+#page-messages .mx-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0;padding:12px 14px;border-top:1px solid var(--hair);font-size:13px;color:var(--mut)}
+#page-messages .mx-wait{margin:0;padding:8px 0;font-size:13px;color:var(--mut);text-align:center}
+
+/* The thread */
+#page-messages .mx-thread{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+#page-messages .mxth{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+#page-messages .mxth-main{min-width:0;flex:1}
+#page-messages .mxth-t{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:16px;line-height:1.3}
+#page-messages .mxth-t b{font-weight:700}
+#page-messages .mxth-s{font-size:13px;color:var(--mut)}
+#page-messages .mx-back{margin-left:-10px;flex:none}
+#page-messages .mx-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px 20px}
+#page-messages #mxbody{display:flex;flex-direction:column;gap:12px}
+#page-messages #mxbody>.empty-state{margin:auto 0}
+#page-messages .mxb{align-self:flex-start;max-width:min(82%,680px);min-width:0;padding:10px 14px;border-radius:var(--r16);border-top-left-radius:6px;
+  background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 80%,transparent);box-shadow:var(--shadow-sm);font-size:15px}
+#page-messages .mxb.me{align-self:flex-end;background:var(--acc-tint);border-color:transparent;box-shadow:none;border-radius:var(--r16);border-top-right-radius:6px}
+#page-messages .mxb.right{align-self:flex-end;border-radius:var(--r16);border-top-right-radius:6px}
+#page-messages .mxb.hl{box-shadow:0 0 0 2px var(--focus-line)}
+#page-messages .mxb-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-bottom:4px;font-size:12px;color:var(--mut)}
+#page-messages .mxb-h .who{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--fg)}
+#page-messages .mxb-h .who .mlogo{width:18px;height:18px;border-radius:5px}#page-messages .mxb-h .who .mlogo svg{width:11px;height:11px}
+#page-messages .mxb-h .link{font-weight:600}
+#page-messages .mx-st{font-weight:600}
+#page-messages .mx-st.warn{color:var(--warn)}#page-messages .mx-st.bad{color:var(--bad)}#page-messages .mx-st.info{color:var(--info)}
+#page-messages .mxb .badge .link{color:inherit}
+#page-messages .mxb.clamp .md{max-height:18em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 75%,transparent);mask-image:linear-gradient(#000 75%,transparent)}
+#page-messages .mxb .mx-more{margin-top:6px}
+#page-messages .mx-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+#page-messages .mx-acts .btn{white-space:normal;text-align:left}
+#page-messages .mxb .mx-more{margin-left:-12px;color:var(--acc-ink)}
+
+/* The reply box */
+#page-messages #mxcomp:not(:empty){padding:12px 16px 16px;background:var(--surface);border-top:1px solid var(--line)}
+#page-messages .mxcomp{display:flex;flex-direction:column;gap:8px}
+#page-messages .mxcomp textarea{min-height:64px;max-height:40vh;resize:vertical}
+#page-messages .mxcomp-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#page-messages .mxcomp-hint{flex:1;min-width:0;font-size:13px;color:var(--mut)}
+#page-messages .mxcomp-err{font-size:14px;color:var(--bad)}
+#page-messages .mxcomp-err:empty{display:none}
+#page-messages .mxnot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--mut)}
+#page-messages .mxnot>span{flex:1;min-width:160px}
+
+/* The agent picker sheet (outside the page, so scoped by the page in view) */
+body[data-page="messages"] .mxpick{display:flex;flex-direction:column}
+body[data-page="messages"] .mxpick-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 16px;border-radius:0;border-top:1px solid var(--hair);
+  background:transparent;color:var(--fg);font:inherit;text-align:left;white-space:normal}
+body[data-page="messages"] .mxpick>.mxpick-row:first-child{border-top:0}
+body[data-page="messages"] .mxpick-row:active{transform:none;background:var(--well)}
+@media (hover:hover){body[data-page="messages"] .mxpick-row:hover{background:var(--well)}}
+
+@media (min-width:900px){#page-messages .mx-back{display:none}}
+
+/* A phone: the list, or the thread with Back; the reply box sits above the tab bar. */
+@media (max-width:899px){
+  #page-messages .mx{display:block;height:auto;min-height:0;background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
+  #page-messages .mx.open .mx-list,#page-messages .mx:not(.open) .mx-thread,#page-messages.mx-open .mx-head{display:none}
+  #page-messages .mx-list{border:0}
+  #page-messages .mx-tools{padding:0 0 12px;border:0}
+  #page-messages .mx-scroll{overflow:visible}
+  #page-messages #mxrows>.mxrows,#page-messages #mxrows>.mx-foot{background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 80%,transparent);box-shadow:var(--shadow-sm)}
+  #page-messages #mxrows>.mxrows{border-radius:var(--r16);overflow:hidden}
+  #page-messages #mxrows>.mx-foot{margin-top:12px;border-radius:var(--r16)}
+  #page-messages .mx-thread{background:none}
+  #page-messages .mxth{position:sticky;top:calc(var(--bar-h) + env(safe-area-inset-top,0px));z-index:5;margin:-16px -16px 0;padding:6px 16px;background:var(--bar);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  #page-messages .mx-body{overflow:visible;padding:16px 0}
+  #page-messages .mxb{max-width:90%}
+  #page-messages #mxcomp:not(:empty){position:sticky;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px) + 8px);z-index:5;padding:10px;
+    border:1px solid var(--line);border-radius:var(--r16);box-shadow:var(--shadow-lg)}
+  #page-messages .mxcomp textarea{min-height:48px}
+  #page-messages .mxcomp-hint{order:3;flex-basis:100%}
+  #page-messages .mxcomp-row .btn-acc{margin-left:auto}
+}
