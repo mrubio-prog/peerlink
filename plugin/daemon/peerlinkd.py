@@ -4425,6 +4425,32 @@ def task_note(tid, body):
     return 200, out
 
 
+def user_task_note(tid, body):
+    """Your note on an open task, from the web UI: kept in its record, and sent down its tree as a note from whoever
+    asked for it goes, to its owner and the owner of every open task under it at once. It answers what the owner
+    was blocked on, so the task's blocker is cleared, as an asker's note clears it."""
+    text = str(body.get("text") or "").strip()
+    if not text:
+        return 400, {"error": "text is required: the note"}
+    limit = int(config.get("max_message_chars") or 0)
+    if limit and len(text) > limit:
+        return 413, {"error": f"note is {len(text)} characters, over the {limit} limit: write the details to a file and give its path with a short summary"}
+    with lock:
+        t = tasks.get(tid)
+        if t is None:
+            return 404, {"error": f"no task {tid}"}
+        if t["status"] not in TASK_OPEN:
+            return 409, {"error": f"{tid} is {t['status']}: notes go on open tasks"}
+        task_log(t, USER_NAME, "note", text)
+        t["blocked"] = ""
+        reach = [t] + [c for c, _ in task_below(t) if c["status"] in TASK_OPEN]
+        told = task_fan_out(t, f"Note on task {tid} ({t['title']}) from {USER_NAME}, your user"
+                               + (f", sent to everyone working under it ({len(reach)} tasks)" if len(reach) > 1 else "") + f":\n{text}")
+        save_tasks()
+    log("task", tid, "note from the web UI ->", ", ".join(told) or "nobody")
+    return 200, {"task": tid, "direction": "down", "told": told}
+
+
 def about_task(sender_rec, named, text):
     """The task a question to your user is about: the one named, else the single open task on the sender's own
     trees that its text mentions. '' for none. Called with the lock held."""
@@ -6454,6 +6480,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(403, {"error": "unknown agent; register again"})
             return self.reply(*task_view(rest[1], by))
         if len(rest) == 3 and rest[0] == "tasks" and rest[2] == "note" and method == "POST":
+            # From you in the web UI, a note goes down the task's tree in your name; an agent's goes up or down by its part.
+            if browser and not self.key_ok():
+                return self.reply(*user_task_note(rest[1], self.body()))
             return self.reply(*task_note(rest[1], self.body()))
         if rest == ["tasks"] and method == "GET":
             with lock:

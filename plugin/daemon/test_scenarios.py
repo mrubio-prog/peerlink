@@ -603,5 +603,29 @@ class ScenarioTest(unittest.TestCase):
         self.assertEqual(rig.user("POST", f"/api/schedules/{once['id']}/run", {})["schedule"]["status"], "done")
 
 
+    def test_your_note_on_a_task_from_the_web_ui_is_on_its_record_and_reaches_everyone_under_it(self):
+        rig = self.rig()
+        _, core, loop = self.team(rig)
+        top = rig.user("POST", "/api/web/send", {"to": "core", "kind": "task", "text": "Ship the template engine"})["task"]
+        core.expect("Ship the template engine")
+        sub = core.send(to="loop", kind="task", text=f"Backend PR for {top}")["task"]
+        loop.expect("Backend PR")
+        core.call("POST", f"/api/tasks/{top}/note", {"text": "Which branch do I merge into?", "blocked": True})
+        self.assertEqual(rig.user("GET", f"/api/tasks/{top}")["task"]["blocked"], "Which branch do I merge into?")
+        # Your note, from the browser: on the record in your name, to the owner and the owner of every open task under it.
+        out = rig.user("POST", f"/api/tasks/{top}/note", {"text": "Merge into release-2."})
+        self.assertEqual((out["direction"], sorted(out["told"])), ("down", ["core", "loop"]))
+        self.assertIn("Merge into release-2.", core.expect("Merge into release-2.")["text"])
+        self.assertIn(f"through your task {sub}", loop.expect("Merge into release-2.")["text"])
+        view = rig.user("GET", f"/api/tasks/{top}")["task"]
+        self.assertEqual((view["log"][-1]["kind"], view["log"][-1]["text"], view["blocked"]), ("note", "Merge into release-2.", ""))
+        # An agent's note still needs its own id; an unknown task is not found; a closed one takes no notes.
+        self.assertEqual(rig.call("POST", f"/api/tasks/{top}/note", {"text": "hi"})[0], 403)
+        self.assertEqual(rig.call("POST", "/api/tasks/t999/note", {"text": "hi"}, user=True)[0], 404)
+        self.assertEqual(rig.call("POST", f"/api/tasks/{top}/note", {"text": " "}, user=True)[0], 400)
+        loop.call("POST", f"/api/tasks/{sub}", {"status": "done", "note": "Merged."})
+        self.assertEqual(rig.call("POST", f"/api/tasks/{sub}/note", {"text": "Thanks."}, user=True)[0], 409)
+
+
 if __name__ == "__main__":
     unittest.main()
