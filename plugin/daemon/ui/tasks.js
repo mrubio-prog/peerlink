@@ -1,12 +1,12 @@
 // tasks.js: the Tasks page. Work handed between agents, as a board (Open, In progress, Done, Failed; Cancelled behind
 // a chip) or a list grouped by status (always the list on a phone). #tasks/<tid> opens that task in a sheet: on the
 // right from 900px, from the bottom on a phone, so the board never moves under it.
-// shell.js owns the shared task pieces this page uses: TSTATE, isLive, taskLog (the record), and the handlers behind
-// [data-tact] (Cancel / Reopen) and [data-treassign] (hand to another agent).
+// shell.js owns the shared task pieces this page uses: TSTATE, isLive, taskLog (the record), PL.taskBadge, and the
+// handlers behind [data-tact] (Cancel / Reopen) and [data-treassign] (hand to another agent).
 PL.page('tasks',{title:'Tasks',
   html:`<div class="tk-head"><h1>Tasks</h1><span class="tk-gap"></span>
 <span class="seg tk-layout" role="group" aria-label="Layout"><button type="button" data-tk-layout="board">Board</button><button type="button" data-tk-layout="list">List</button></span>
-<button type="button" class="icon-btn tk-help" data-tk-help aria-label="How tasks work">?</button>
+${PL.helpBtn('How tasks work','data-tk-help')}
 <button type="button" class="btn btn-acc sm" data-tk-new>${PL.icon('plus',18)}New task</button></div>
 <div class="chips tk-chips" id="tk-chips" role="toolbar" aria-label="Filters"></div>
 <div class="tk-drop" id="tk-drop"></div>
@@ -20,7 +20,6 @@ PL.page('tasks',{title:'Tasks',
 const TK={scope:'all',space:'',owner:'',req:'',cancelled:pref('tk.cancelled','')==='1',layout:pref('tlayout','board'),rows:pref('tgroup',''),
   kids:new Map(),sheet:null,drag:null,bare:false};
 const TK_COLS=[['open','Open'],['in_progress','In progress'],['done','Done'],['failed','Failed'],['cancelled','Cancelled']];
-const TK_TONE={open:'mut',in_progress:'info',done:'ok',failed:'bad',cancelled:'mut'};
 const tkPhone=matchMedia('(max-width:639px)');
 tkPhone.addEventListener?.('change',()=>{if(PL.route.page==='tasks')PL.render()});
 const tkLayoutNow=()=>tkPhone.matches?'list':TK.layout;
@@ -33,13 +32,13 @@ const tkReqName=t=>t.requester?.id==='user'?'you':String(t.requester?.name||'?')
 const tkWho=(id,name)=>PL.agentLink(id&&PL.findAgent(id)?id:name,name);
 const tkOwner=t=>t.user?'you':tkWho(t.owner_id,t.owner);
 const tkAsker=t=>t.requester?.id==='user'?'you':tkWho(t.requester?.id,tkReqName(t));
-const tkStatus=t=>PL.badge(TK_TONE[t.status]||'mut',String(TSTATE[t.status]||t.status).replace(/^./,c=>c.toUpperCase()));
+const tkStatus=t=>PL.taskBadge(t);
 const tkKidsOf=id=>TK.kids.get(id)||[];
 // Every open task under this one that's blocked, however deep: a parent's card says so, so the blocker can't hide.
 function tkBlockedBelow(t,seen=new Set([t.id])){let out=[];
   for(const k of tkKidsOf(t.id)){if(seen.has(k.id))continue;seen.add(k.id);if(tkIsBlocked(k))out.push(k);out=out.concat(tkBlockedBelow(k,seen))}
   return out}
-const tkPlural=(n,one,many)=>`${n} ${n===1?one:many}`;
+const tkPlural=PL.plural;
 const tkProgress=t=>{const kids=tkKidsOf(t.id);if(!kids.length)return '';const done=kids.filter(k=>k.status==='done').length;
   return `<div class="tk-prog"><span>${done} of ${tkPlural(kids.length,'subtask','subtasks')} done</span><span class="tk-bar"><i style="width:${Math.round(100*done/kids.length)}%"></i></span></div>`};
 // Why it's blocked, on the card itself: its own reason, and how many of its subtasks are blocked (with the first's reason).
@@ -84,7 +83,7 @@ function tkRow(t){
     ${tkBlockers(t)}${tkProgress(t)}</span><span class="chev">${PL.icon('chev',18)}</span></div>`}
 function tkList(list){
   return tkCols().map(([k,label])=>{const rows=list.filter(t=>t.status===k).sort(tkNewest);
-    return rows.length?`<section class="tk-grp" data-col="${k}"><h3 class="tk-gh">${label}<span class="tk-n">${rows.length}</span></h3><div class="group">${rows.map(tkRow).join('')}</div></section>`:''}).join('')}
+    return rows.length?`<section class="tk-grp" data-col="${k}"><h3 class="sticky-h tk-gh">${label}<span class="tk-n">${rows.length}</span></h3><div class="group">${rows.map(tkRow).join('')}</div></section>`:''}).join('')}
 
 function tkRender(st,route){
   TK.kids=new Map();for(const t of allTasks)if(t.parent){if(!TK.kids.has(t.parent))TK.kids.set(t.parent,[]);TK.kids.get(t.parent).push(t)}
@@ -109,23 +108,20 @@ function tkSyncSheet(route){const id=route.page==='tasks'?route.id:'';
   TK.bare=false;tkPaintSheet()}
 function tkOpenSheet(id,fromBoard){
   const tok={id,fromBoard};openLogs.add(id);  // its record shows open, without a click
-  tok.h=PL.sheet.open({title:'Task '+id,body:`<div class="tk-sheet" data-task="${esc(id)}"><div class="tk-info"></div><div class="tk-acts"></div></div>`,
+  tok.h=PL.sheet.open({title:'Task '+id,route:'page',body:`<div class="tk-sheet" data-task="${esc(id)}"><div class="tk-info"></div><div class="tk-acts"></div></div>`,
     onClose:()=>{if(TK.sheet!==tok)return;TK.sheet=null;if(PL.route.page==='tasks'&&PL.route.id===id){if(tok.fromBoard)history.back();else PL.go('#tasks')}}});
   tok.info=tok.h.body.querySelector('.tk-info');tok.acts=tok.h.body.querySelector('.tk-acts');TK.sheet=tok}
 function tkCloseSheet(){const s=TK.sheet;if(!s)return;TK.sheet=null;s.h.close()}
 function tkPaintSheet(){const s=TK.sheet,t=allTasks.find(x=>x.id===s.id);
   if(!t){PL.paint(s.info,PL.empty({icon:'tasks',title:'No such task',text:`There's no task ${s.id}. It may have been cleared, or be older than the newest 500.`,action:{label:'Back to the board',href:'#tasks'}}));PL.paint(s.acts,'');return}
   PL.paint(s.info,tkDetail(t));
-  // A repaint can take away the focused button (Done, Cancel task...): keep focus in the sheet, so Escape still closes it.
-  // (A disabled button drops focus to the body before the repaint, so that counts too.)
-  PL.paint(s.acts,tkActions(t));
-  const a=document.activeElement;if((!a||a===document.body)&&!document.querySelector('dialog[open]'))s.h.el.querySelector('.sheet-head .icon-btn')?.focus({preventScroll:true})}
+  PL.paint(s.acts,tkActions(t))}
 // The task's text without its first line when that's the title, which the sheet already shows.
 const tkBody=t=>{const lines=String(t.text||'').split('\n'),i=lines.findIndex(l=>l.trim());
   return (i>=0&&lines[i].trim().replace(/^task\s*:\s*/i,'').startsWith(t.title)?lines.slice(i+1):lines).join('\n').trim()};
 function tkDetail(t){const kids=tkKidsOf(t.id).slice().sort((a,b)=>a.created-b.created),below=isLive(t)?tkBlockedBelow(t):[],parent=allTasks.find(x=>x.id===t.parent);
   const fact=(k,v)=>`<div class="row tk-fact"><span class="tk-k">${k}</span><span class="tk-v">${v}</span></div>`;
-  const why=(head,text)=>`<div class="tk-callout"><div class="tk-callout-h">${PL.icon('alert',18)}<span>${head}</span></div><div class="md">${md(text)}</div></div>`;
+  const why=(head,text)=>PL.callout(head,`<div class="md">${md(text)}</div>`);
   return `<div class="tk-top">${tkStatus(t)}${tkIsBlocked(t)?PL.badge('warn','Blocked'):''}<span class="tk-age">opened ${ago(t.created)} ago</span></div>
     <h3 class="tk-title">${esc(t.title)}</h3>
     ${tkIsBlocked(t)?why(`Blocked, says ${tkOwner(t)}`,t.blocked):''}
@@ -137,15 +133,14 @@ function tkDetail(t){const kids=tkKidsOf(t.id).slice().sort((a,b)=>a.created-b.c
     ${t.note?`${PL.label('Latest note')}<div class="md tk-note">${md(t.note)}</div>`:''}
     ${tkBody(t)?`${PL.label('Details')}<div class="md tk-text">${md(tkBody(t))}</div>`:''}
     ${(t.log||[]).length?`<div class="tk-record">${taskLog(t)}</div>`:''}`}
-// What you can do from here: what the web UI could already do. Only a task given to you is marked done or failed here
-// (as in the Inbox); an agent's own task is its to close, and a note to it goes as a message about the task.
+// What you can do from here. Only a task given to you is marked done or failed here (as in the Inbox); an agent's own
+// task is its to close. A note to its owner goes on the task's record and reaches every owner under it.
 function tkActions(t){const live=isLive(t);let h=PL.label('Actions');
   if(live&&t.user)h+=`<label class="field">Your note<textarea name="tknote" rows="3" placeholder="What you did, or why you couldn't"></textarea></label>
     <div class="tk-btns"><button type="button" class="btn btn-solid sm" data-tk-inbox="done">${PL.icon('check',18)}Done</button><button type="button" class="btn btn-out sm" data-tk-inbox="failed">Couldn't do it</button></div>`;
-  else if(live)h+=`<label class="field">Note to ${esc(t.owner)}<textarea name="tknote" rows="3" placeholder="It gets this as a message about ${esc(t.id)}"></textarea></label>
+  else if(live)h+=`<label class="field">Note to ${esc(t.owner)}<textarea name="tknote" rows="3" placeholder="It goes on ${esc(t.id)}'s record, to ${esc(t.owner)} and everyone working under it"></textarea></label>
     <div class="tk-btns"><button type="button" class="btn btn-solid sm" data-tk-note>Send note</button></div>`;
-  // The placeholder option is marked selected, so the untouched select doesn't count as an unsaved change.
-  const pick=agentSelect('','data-treassign','Choose an agent…').replace('<option value="">','<option value="" selected>');
+  const pick=agentSelect('','data-treassign','Choose an agent…');
   h+=`<label class="field">Hand it to another agent${pick}<span class="hint">${!live?'It reopens for the agent you pick.':t.user?'It leaves your Inbox.':esc(t.owner)+' is told to stop.'}</span></label>
     <div class="tk-btns">${live?'<button type="button" class="btn btn-danger sm" data-tact="cancelled">Cancel task</button>':'<button type="button" class="btn btn-out sm" data-tact="open">Reopen</button>'}</div>`;
   return h}
@@ -195,20 +190,18 @@ document.addEventListener('click',e=>{const el=e.target;let b;
   // A card or row opens its task; a link inside it goes where the link says.
   const c=el.closest('.tk-card,.tk-row');if(c&&!el.closest('a,button,select,input,textarea'))PL.go('#tasks/'+encodeURIComponent(c.dataset.task))});
 document.addEventListener('keydown',e=>{const c=e.target.closest?.('.tk-card,.tk-row');if(c&&e.target===c&&(e.key==='Enter'||e.key===' ')){e.preventDefault();PL.go('#tasks/'+encodeURIComponent(c.dataset.task))}});
-// In the sheet: Done / Couldn't do it (a task given to you) and Send note (to the owner, as a message about the task).
+// In the sheet: Done / Couldn't do it (a task given to you) and Send note (on the task's record, to its owner).
 document.addEventListener('click',async e=>{const b=e.target.closest?.('.tk-sheet [data-tk-inbox],.tk-sheet [data-tk-note]');if(!b||!TK.sheet)return;
   const s=TK.sheet,id=s.id,t=allTasks.find(x=>x.id===id);if(!t)return;
   const ta=s.h.body.querySelector('[name=tknote]'),text=(ta?.value||'').trim(),act=b.dataset.tkInbox;s.h.setError('');
   if(!act&&!text){s.h.setError('Write the note first.');ta?.focus();return}
   b.disabled=true;let r;
   try{r=act?await post('/api/inbox',{kind:'task',id,action:act,text})
-    :await post('/api/web/send',{to:PL.findAgent(t.owner_id)?.id||t.owner,text:`Note on task ${id} (${t.title}):\n${text}`})}
+    :await post(`/api/tasks/${encodeURIComponent(id)}/note`,{text})}
   catch(x){r={error:String(x?.message||x)}}
   b.disabled=false;if(r.error){s.h.setError(r.error);return}
   if(ta){ta.value='';PL.settle(ta)}
-  PL.toast(act?`${id} marked ${act==='done'?'done':'failed'}`:`Note sent to ${r.to}`);refresh(true)});
-// The shared Reassign handler posts on change; the sheet is a form, so mark the pick as sent or its region stays held.
-document.addEventListener('change',e=>{if(e.target.matches?.('.tk-sheet [data-treassign]')&&e.target.value)PL.settle(e.target)});
+  PL.toast(act?`${id} marked ${act==='done'?'done':'failed'}`:`Note added to ${id}`+((r.told||[]).length?`: sent to ${r.told.join(', ')}`:''));refresh(true)});
 
 // ---- Dragging: the columns and agents a card may go to light up; anything else refuses the drop -------------------
 // What a drop on a column does: only what the web UI could already do. The owner's own statuses are never set here.

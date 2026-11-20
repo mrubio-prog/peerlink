@@ -20,7 +20,6 @@
 #page-setup .su-ht h1{margin:0 0 2px}
 #page-setup .su-ht p{margin:0;color:var(--fg2);font-size:15px}
 #page-setup .su-hact{display:flex;align-items:center;gap:8px;flex:none}
-#page-setup .su-help{font:700 17px/1 var(--font);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;width:36px;height:36px;margin:4px 0 0}
 #page-setup .su-load{color:var(--mut);padding:16px 0}
 @media (max-width:899px){#page-setup .su-hact .btn{padding:6px 10px}}
 
@@ -36,28 +35,11 @@
 #page-setup .row-v .badge{flex:none}
 #page-setup .su-ell{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 #page-setup .su-warn{color:var(--warn);font-weight:600}
-#page-setup .su-danger .row-t{color:var(--bad)}
-#page-setup .su-danger .tile{background:var(--bad-bg);color:var(--bad)}
 
-/* A row that's a button (opens a sheet or acts), and a row whose width flips its switch. */
-body[data-page="setup"] button.row{width:100%;margin:0;background:none;border:0;border-top:1px solid var(--hair);border-radius:0;box-shadow:none;
-  font:inherit;color:var(--fg);text-align:left;justify-content:flex-start;white-space:normal;cursor:pointer;min-height:52px;padding:8px 16px;transition:background-color .15s var(--ease)}
-body[data-page="setup"] .group>button.row:first-child{border-top:0}
-body[data-page="setup"] button.row:active{transform:none;background:var(--well)}
-body[data-page="setup"] .su-tr{cursor:pointer;-webkit-user-select:none;user-select:none}
-body[data-page="setup"] .su-tr.busy{opacity:.7}
-body[data-page="setup"] .su-tr .row-v{max-width:none}
-@media (hover:hover){body[data-page="setup"] button.row:hover,body[data-page="setup"] .su-tr:hover{background:var(--well)}}
+/* Rows that are buttons, switches and switch rows are base.css's (button.row, .switch, .switch-row). */
 body[data-page="setup"] .tile.su-logo{color:#fff}
 body[data-page="setup"] .su-logo svg{width:20px;height:20px}
 
-/* The switch: a 48x28 track, a 24px knob, emerald when on. */
-body[data-page="setup"] .su-sw{position:relative;flex:none;width:48px;height:28px;min-height:28px;padding:0;border:0;border-radius:999px;background:var(--chev);box-shadow:none;cursor:pointer;transition:background-color .2s var(--ease)}
-body[data-page="setup"] .su-sw i{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgb(0 0 0/.25);transition:transform .2s var(--ease)}
-body[data-page="setup"] .su-sw[aria-checked="true"]{background:var(--acc)}
-body[data-page="setup"] .su-sw[aria-checked="true"] i{transform:translateX(20px)}
-body[data-page="setup"] .su-sw:active:not(:disabled){transform:none}
-body[data-page="setup"] .su-sw:disabled{opacity:.45}
 
 /* Shared bits: action rows of buttons, a meta line of badges, an in-text button. */
 body[data-page="setup"] .su-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -111,18 +93,8 @@ body[data-page="setup"] .su-meta{display:flex;gap:8px;align-items:center;flex-wr
 body[data-page="setup"] .sheet .hint{font-size:13px;color:var(--mut);font-weight:400;margin:0}
 body[data-page="setup"] .sheet p.hint{margin:0 0 4px;font-size:14px;color:var(--fg2)}
 body[data-page="setup"] .sheet .label{margin:12px 0 0}
-body[data-page="setup"] .sheet .field{margin:0}
-body[data-page="setup"] .sheet select{width:100%}
 body[data-page="setup"] .sheet [data-live]{display:flex;flex-direction:column;gap:12px}
-body[data-page="setup"] .su-dz{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;padding-top:16px;border-top:1px solid var(--hair)}
 body[data-page="setup"] .su-state{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
-body[data-page="setup"] .su-steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
-body[data-page="setup"] .su-step{display:flex;gap:12px;align-items:flex-start;background:var(--well);border-radius:var(--r14);padding:12px 14px}
-body[data-page="setup"] .su-step>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-body[data-page="setup"] .su-step>div>.field,body[data-page="setup"] .su-step>div>.su-list{align-self:stretch}
-body[data-page="setup"] .su-step-n{flex:none;width:26px;height:26px;border-radius:999px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--mut)}
-body[data-page="setup"] .su-step.done .su-step-n{background:var(--ok-solid);box-shadow:none;color:#fff}
-body[data-page="setup"] .su-step-t{font-weight:600}
 body[data-page="setup"] .su-list{display:flex;flex-direction:column;gap:8px}
 body[data-page="setup"] .su-li{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;background:var(--surface);border-radius:var(--r12);padding:8px 12px;box-shadow:inset 0 0 0 1px var(--line);font-size:14px}
 body[data-page="setup"] .su-sh-h{display:flex;align-items:center;gap:10px}
@@ -142,13 +114,8 @@ body[data-page="setup"] .su-client-h{display:flex;align-items:center;gap:8px;fle
 body[data-page="setup"] .su-client-f{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 12px;align-self:stretch}
 @media (max-width:639px){body[data-page="setup"] .su-client-f{grid-template-columns:minmax(0,1fr)}}
 body[data-page="setup"] .su-grow{flex:1}
-body[data-page="setup"] .su-radios,body[data-page="setup"] .su-checks{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}
-body[data-page="setup"] .su-radios legend,body[data-page="setup"] .su-checks legend{font-size:14px;font-weight:600;color:var(--fg2);margin:0 0 6px;padding:0}
-body[data-page="setup"] .su-radio{display:flex;gap:12px;align-items:flex-start;margin:0;padding:12px 14px;border-radius:var(--r12);box-shadow:inset 0 0 0 1px var(--line);font-weight:500;color:var(--fg);cursor:pointer}
-body[data-page="setup"] .su-radio input{margin-top:2px}
-body[data-page="setup"] .su-radio>span{display:flex;flex-direction:column;gap:2px}
-body[data-page="setup"] .su-radio:has(input:checked){box-shadow:inset 0 0 0 2px var(--focus-line);background:var(--acc-tint)}
-body[data-page="setup"] .su-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body[data-page="setup"] .su-guide{min-height:280px;font-family:var(--mono);font-size:14px}
 body[data-page="setup"] .su-help-b p{margin:0 0 10px;color:var(--fg2);font-size:15px;line-height:1.55}
 body[data-page="setup"] .su-legend{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;color:var(--fg2)}
+
+body[data-page="setup"] .step>div>.field,body[data-page="setup"] .step>div>.su-list{align-self:stretch}

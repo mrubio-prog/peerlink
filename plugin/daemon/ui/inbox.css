@@ -1,8 +1,8 @@
-/* inbox.css: the Inbox page's own rules, each under #page-inbox (or body[data-page="inbox"]). */
+/* inbox.css: the Inbox page's own rules, each under #page-inbox (or body[data-page="inbox"]). The item card is
+   base.css's .icard (PL.inboxCard). */
 #page-inbox{max-width:760px;margin:0 auto}
 #page-inbox .ib-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 #page-inbox .ib-head h1{margin:0}
-#page-inbox .ib-help{font:700 18px var(--font);color:var(--mut);box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;width:36px;height:36px;margin:4px}
 #page-inbox .ib-chips{margin-bottom:16px}
 #page-inbox .ib-chips:empty{display:none}
 #page-inbox .ib-sep{width:1px;height:20px;background:var(--line);margin:0 4px}
@@ -13,30 +13,8 @@
   #page-inbox .ib-chips .chip{flex:none}}
 
 #page-inbox .ib-list{display:flex;flex-direction:column;gap:12px}
-#page-inbox .ib-card{background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:var(--r16);box-shadow:var(--shadow-sm);
-  padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;min-width:0;transition:opacity .18s var(--ease),transform .18s var(--ease)}
-#page-inbox .ib-card.ib-leaving{opacity:0;transform:translateX(12px)}
-#page-inbox .ib-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--mut);min-width:0}
-#page-inbox .ib-who{font-size:14px;color:var(--fg)}
-#page-inbox .ib-wait{margin-left:auto;font-size:13px;color:var(--mut);white-space:nowrap}
-#page-inbox .ib-wait .link{font-weight:500}
-#page-inbox .ib-q{font-weight:600;font-size:16px;line-height:1.4;color:var(--fg)}
-#page-inbox .ib-body{font-size:15px;color:var(--fg2)}
-#page-inbox .ib-default{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--warn);background:var(--warn-bg);box-shadow:inset 0 0 0 1px var(--warn-ring);border-radius:var(--r12);padding:8px 12px}
-#page-inbox .ib-default .ic{margin-top:2px}
-#page-inbox .ib-default .link{color:inherit;text-decoration:underline}
-#page-inbox .ib-opts{display:flex;flex-direction:column;gap:8px}
-#page-inbox .ib-opt{justify-content:flex-start;white-space:normal;text-align:left;height:auto;min-height:44px;padding:8px 14px;font-size:15px;line-height:1.3}
-#page-inbox .ib-n{flex:none;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;font-size:12px;background:var(--well);color:var(--mut);box-shadow:inset 0 0 0 1px var(--line)}
-#page-inbox .ib-line{display:flex;gap:8px;align-items:center;margin:0}
-#page-inbox .ib-line input{flex:1;min-width:0;width:auto}
-#page-inbox .ib-line .btn{min-height:44px}
-#page-inbox .ib-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#page-inbox .ib-acts .btn-ghost{margin-left:-8px}
 #page-inbox .ib-grp{display:flex;flex-direction:column;gap:12px}
 #page-inbox .ib-grp+.ib-grp{margin-top:12px}
 #page-inbox .ib-grp-h{display:flex;align-items:center;gap:10px;font-size:15px}
-#page-inbox .ib-grp-h .ib-wait{margin-left:auto}
-@media (min-width:640px){#page-inbox .ib-opts{flex-direction:row;flex-wrap:wrap}}
+#page-inbox .ib-grp-h .icard-wait{margin-left:auto}
 body[data-page="inbox"] .ib-help-p{margin:0;color:var(--fg2);line-height:1.55}
-#page-inbox .ib-grp .ib-top>.av,#page-inbox .ib-grp .ib-who{display:none}

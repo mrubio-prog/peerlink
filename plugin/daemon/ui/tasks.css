@@ -3,7 +3,6 @@
 #page-tasks .tk-head{display:flex;align-items:center;gap:8px;margin:0 0 12px}
 #page-tasks .tk-head h1{margin:0}
 #page-tasks .tk-gap{flex:1}
-#page-tasks .tk-help{font:700 18px var(--font);color:var(--fg2)}
 #page-tasks .tk-chips{margin:0 0 16px}
 #page-tasks .tk-chips .chip .ic{margin-right:-4px;opacity:.8}
 #page-tasks .tk-n{font-variant-numeric:tabular-nums;font-weight:600;opacity:.65;margin-left:2px}
@@ -49,11 +48,8 @@
 #page-tasks .tk-target.bad{color:var(--bad);border-color:var(--bad-ring)}
 #page-tasks .tk-target.bad.over{background:var(--bad-bg);border-color:var(--bad-solid)}
 
-/* The list: one group per status, its small-caps header sticky under the top bar. */
+/* The list: one group per status, its small-caps header sticky under the top bar (.sticky-h). */
 #page-tasks .tk-grp{margin:0 0 16px}
-#page-tasks .tk-gh{position:sticky;top:calc(var(--bar-h) + env(safe-area-inset-top,0px));z-index:5;display:flex;align-items:center;gap:8px;margin:0;padding:10px 4px 8px;
-  font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);
-  background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 #page-tasks .tk-row{align-items:flex-start;padding:12px 8px 12px 16px;cursor:pointer;transition:background-color .15s var(--ease)}
 @media (hover:hover){#page-tasks .tk-row:hover{background:var(--well)}}
 #page-tasks .tk-row .row-main{gap:4px}
@@ -80,9 +76,6 @@ body[data-page="tasks"] .tk-sheet select,body[data-page="tasks"] .tk-form select
 body[data-page="tasks"] .tk-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 body[data-page="tasks"] .tk-top .tk-age{margin-left:auto;font-size:13px;color:var(--mut)}
 body[data-page="tasks"] .tk-title{margin:0;font-size:19px;font-weight:700;line-height:1.3}
-body[data-page="tasks"] .tk-callout{background:var(--warn-bg);box-shadow:inset 0 0 0 1px var(--warn-ring);border-radius:var(--r12);padding:10px 12px;font-size:14px}
-body[data-page="tasks"] .tk-callout-h{display:flex;align-items:center;gap:8px;color:var(--warn);font-weight:600;margin-bottom:4px}
-body[data-page="tasks"] .tk-callout-h .link{color:inherit;text-decoration:underline}
 body[data-page="tasks"] .tk-fact{min-height:44px;align-items:baseline;gap:12px;font-size:14px}
 body[data-page="tasks"] .tk-k{flex:none;width:76px;color:var(--mut)}
 body[data-page="tasks"] .tk-v{flex:1;min-width:0}

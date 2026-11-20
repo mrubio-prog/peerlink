@@ -31,26 +31,20 @@ PL.page('setup',{title:'Setup',sections:SECS,
   unmount(){if(S.sheet&&PL.sheet.isOpen())S.sheet.close();S.sec=null}});
 
 // ---- Small builders ----------------------------------------------------------------------------------------------
-// A switch (the style guide's toggle): a button, so it never holds a region the way a changed field does.
-const sw=(on,label,attrs='')=>`<button type="button" class="su-sw" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" ${attrs}><i></i></button>`;
-// A grouped-list row: a link (href), a button that runs ACT[act] (act), or a plain row. title/sub/value are HTML.
-function row({href,act,arg,icon,tile,title='',sub='',value='',chev,cls='',attrs=''}){chev=chev??!!(href||act);
-  const tag=href?'a':act?'button':'div';
-  return `<${tag} class="row${cls?' '+cls:''}"${href?` href="${esc(href)}"`:''}${act?` type="button" data-su="${esc(act)}"${arg!=null?` data-arg="${esc(arg)}"`:''}`:''} ${attrs}>`
-    +(icon||tile?`<span class="tile">${tile||PL.icon(icon)}</span>`:'')
-    +`<span class="row-main"><span class="row-t">${title}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span>`
-    +(value||chev?`<span class="row-v">${value}${chev?`<span class="chev">${PL.icon('chev',18)}</span>`:''}</span>`:'')+`</${tag}>`}
-// A row whose whole width flips a switch (TOG[tog]); the switch inside is what a screen reader and the keyboard use.
-const togRow=({tog,arg='',on,title,sub='',icon,tile,disabled=false})=>`<div class="row su-tr${disabled?' dis':''}" data-su-tog="${esc(tog)}" data-arg="${esc(arg)}">`
-  +(icon||tile?`<span class="tile">${tile||PL.icon(icon)}</span>`:'')
-  +`<span class="row-main"><span class="row-t">${title}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span><span class="row-v">${sw(on,PL.plain(title.replace(/<[^>]+>/g,'')),disabled?'disabled':'')}</span></div>`;
+// The shell's switch (PL.switch): a button, so it never holds a region the way a changed field does.
+const sw=PL.switch;
+// A grouped-list row (PL.row): a link (href), a button that runs ACT[act] (act), or a plain row. title/sub/value are HTML.
+const row=({act,arg,chev,attrs='',...r})=>PL.row({...r,button:!!act,chevron:chev??!!(r.href||act),
+  attrs:(act?`data-su="${esc(act)}"${arg!=null?` data-arg="${esc(arg)}"`:''} `:'')+attrs});
+// A row whose whole width flips a switch (TOG[tog]), the shell's PL.switchRow.
+const togRow=({tog,arg='',...r})=>PL.switchRow({...r,attrs:`data-su-tog="${esc(tog)}" data-arg="${esc(arg)}"`});
 const card=(label,rows,extra='')=>`<section class="su-card">${label?`<div class="su-card-h">${PL.label(label)}${extra}</div>`:''}${PL.group(rows)}</section>`;
-const plural=(n,one,many)=>`${n} ${n===1?one:(many||one+'s')}`;
+const plural=PL.plural;
 const logoTile=plat=>{const [,color,logo]=PLAT[plat];return `<span class="tile su-logo" style="background:${color}">${logo}</span>`};
 // Opens a sheet and remembers it: the page closes it when you leave Setup, and a sheet with live parts is repainted
 // (S.live) when the data behind it changes.
 function sheet(opts){const h=PL.sheet.open({...opts,onClose:()=>{if(S.sheet===h){S.sheet=null;S.live=null}opts.onClose?.()}});S.sheet=h;S.live=null;return h}
-const field=(label,input,hint='')=>`<label class="field">${esc(label)}${input}${hint?`<span class="hint">${hint}</span>`:''}</label>`;
+const field=PL.field;
 async function put(path,body){const r=await PL.put(path,body);if(r&&r.error)PL.toast(r.error,{kind:'bad'});return r}
 
 // ---- The frame: rail, header, sections ---------------------------------------------------------------------------
@@ -70,7 +64,7 @@ const rail=st=>`<a class="su-ni${S.sec===''?' on':''}" href="#setup"${S.sec===''
 function head(st){const sec=S.sec,t=sec==='?'?'Setup':sec?SECS.find(x=>x[0]===sec)[1]:'Setup';
   const sub=sec&&sec!=='?'?SUB[sec]:`${st.status.host} · daemon ${st.status.version}`;
   const acts=(sec==='rules'?`<button type="button" class="btn btn-out sm" data-su="ruleadd">${PL.icon('plus',18)}Add rule</button>`:'')
-    +(sec==='?'?'':`<button type="button" class="icon-btn su-help" data-su="help" data-arg="${sec}" aria-label="How ${esc(t)} works">?</button>`);
+    +(sec==='?'?'':PL.helpBtn(`How ${t} works`,`data-su="help" data-arg="${sec}"`));
   PL.paint($('#su-head'),`${sec?`<a class="icon-btn su-back" href="#setup" aria-label="Back to Setup">${PL.icon('back',22)}</a>`:''}<div class="su-ht"><h1>${esc(t)}</h1><p>${esc(sub)}</p></div><div class="su-hact">${acts}</div>`)}
 
 // ---- Overview ----------------------------------------------------------------------------------------------------
@@ -90,10 +84,9 @@ function overview(st){const sp=spaceInfo(st),c=S.ch,set=C();
     +row({href:'#setup/settings',icon:'settings',title:'All settings',sub:esc(`Wake for ${set.wake_for==='all'?'every message':'questions, tasks and answers'} · ${set.wake_delay_s??0} s wait · context nudge ${set.clear_nudge_tokens?fmtNum(set.clear_nudge_tokens)+' tokens':'off'}`)}));
   const fb=card('Feedback',row({href:'#setup/feedback',icon:'feedback',title:'Feedback',sub:esc(fbAcc?`${fbAcc} accepted, with the peerlink agent`:'Bugs and ideas agents report about peerlink'),value:fbNew?PL.badge('warn',fbNew+' new'):'<span class="mut">None new</span>'}));
   const ctl=card('Controls',row({href:'#setup/controls',icon:'controls',title:'Daemon',sub:esc(st.status.host),value:`<span class="mono">${esc(st.status.version)}</span>`})
-    +row({href:'#setup/controls',icon:'key',tile:KEYICON,title:'Key',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
+    +row({href:'#setup/controls',icon:'key',title:'Key',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
     +row({href:'#setup/controls',icon:'agents',title:'Browsers',value:esc(st.status.browsers+' signed in')}));
   PL.paint($('#su-over'),`<div class="su-cards">${spaces}${rules}${chans}${sets}${fb}${ctl}</div>`)}
-const KEYICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/></svg>';
 // The key's file, with the home folder as ~ (a Windows home too).
 const keyPath=st=>String(st.status.home||'').replace(/\\/g,'/').replace(/^([a-z]:)?\/Users\/[^/]+/i,'~')+'/key';
 const fmtNum=n=>Number(n)>=10000&&Number(n)%1000===0?Number(n)/1000+'k':Number(n).toLocaleString();
@@ -134,7 +127,7 @@ ACT.space=n=>{const st=PL.state,info=spaceInfo(st),l=info.leads[n],agents=(info.
   const up=info.parentOf(n),others=[...new Set([...info.names,...Object.keys(info.leads)])].filter(o=>o!==n&&o!=='default').sort();
   sheet({title:n,saveLabel:'Save',body:field('Lead',`<select name="lead">${opts}</select>`,`Work sent to ${esc(n)} goes to its lead, which decides who does it. Any live agent in the space can lead it.`)
     +field('Sits inside',`<select name="parent"><option value="">Top level</option>${others.map(o=>`<option${o===up?' selected':''}>${esc(o)}</option>`).join('')}</select>`,'Its lead then sits with that space’s agents and speaks for it there.')
-    +`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="spacedel" data-arg="${esc(n)}">Delete ${esc(n)}</button><span class="hint">Its agents go back to their .peerlink space or unassigned, and spaces inside it move to the top.</span></div>`,
+    +`<div class="dz"><button type="button" class="btn btn-danger sm" data-su="spacedel" data-arg="${esc(n)}">Delete ${esc(n)}</button><span class="hint">Its agents go back to their .peerlink space or unassigned, and spaces inside it move to the top.</span></div>`,
     onSave:async f=>{const lv=f.elements.lead.value,pv=f.elements.parent.value,done=[];
       if(lv!=='keep'&&lv!==curVal){const [cwd,id]=lv.split('\t');const r=await post(`/api/spaces/${enc(n)}/lead`,lv?{cwd,id}:{cwd:''});if(r.error)return r.error;
         done.push(lv?`${agents.find(a=>a.id===id)?.name||'it'} leads ${n}`:`${n} has no lead`)}
@@ -172,7 +165,7 @@ ACT.ruleadd=()=>sheet({title:'Add a rule',saveLabel:'Add rule',body:ruleForm(),o
   const r=await post('/api/rules',{space:f.elements.space.value,text:f.elements.text.value});if(r.error)return r.error;
   PL.toast('Rule added: agents get it from their next prompt');await loadRules()}});
 ACT.ruleedit=id=>{const r=S.rules.find(x=>x.id===id);if(!r)return;
-  sheet({title:`Rule ${id}`,body:ruleForm(r)+`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="ruledel" data-arg="${esc(id)}">Delete rule</button><span class="hint">To stop it for a while, turn it off instead.</span></div>`,
+  sheet({title:`Rule ${id}`,body:ruleForm(r)+`<div class="dz"><button type="button" class="btn btn-danger sm" data-su="ruledel" data-arg="${esc(id)}">Delete rule</button><span class="hint">To stop it for a while, turn it off instead.</span></div>`,
     onSave:async f=>{const b={};if(f.elements.text.value.trim()!==r.text)b.text=f.elements.text.value;if(f.elements.space.value!==r.space)b.space=f.elements.space.value;
       if(!Object.keys(b).length)return;const x=await post('/api/rules/'+enc(id),b);if(x.error)return x.error;PL.toast(`Rule ${id} saved`);await loadRules()}})};
 ACT.ruledel=async id=>{if(!await ask('Delete this rule? Agents stop getting it from their next prompt.'))return;
@@ -224,8 +217,7 @@ function renderChannels(){const c=S.ch;if(!c.d){PL.paint($('#su-channels'),`<div
       +card('What agents can send',togRow({tog:'dopt',arg:'buttons',on:d.buttons,title:'Buttons for choices',sub:'Tap one and it goes back to the agent as your answer. Off, choices are a numbered list.'})
         +togRow({tog:'dopt',arg:'files_out',on:d.files_out,title:'Files from agents',sub:'An agent can attach files from this machine to its messages'})
         +togRow({tog:'dopt',arg:'files_in',on:d.files_in,title:'Files to agents',sub:'What you attach is saved under ~/.peerlink/files and the agent gets the paths'})
-        +row({act:'maxmb',icon:'feedback',tile:FILEICON,title:'Largest file, either way',value:esc(d.max_file_mb+' MB')})):''))}
-const FILEICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+        +row({act:'maxmb',icon:'file',title:'Largest file, either way',value:esc(d.max_file_mb+' MB')})):''))}
 // An agent on a mapping is named by folder and name; one that isn't running says so.
 const entryName=e=>{const a=liveAgents().find(x=>x.cwd===e.cwd&&x.name.toLowerCase()===String(e.name||'').toLowerCase());return a?a.name:e.name?e.name+' (not running)':folderLabel(e.cwd)};
 // The mapping saves whole, with Undo: the channels that have an agent, and where Discord DMs go.
@@ -244,7 +236,7 @@ ACT.map=id=>{const body=()=>{const r=routes().find(x=>x.channel_id===id);if(!r)r
       <span class="su-chips"><button type="button" class="chip" aria-pressed="${!!a.receives}" data-su="mapflag" data-arg="${esc(id)}" data-j="${j}" data-f="receives">Receives</button><button type="button" class="chip" aria-pressed="${!!a.sends}" data-su="mapflag" data-arg="${esc(id)}" data-j="${j}" data-f="sends">Sends</button>
       <button type="button" class="icon-btn" data-su="mapun" data-arg="${esc(id)}" data-j="${j}" aria-label="Take ${esc(entryName(a))} off this channel">${PL.icon('x',18)}</button></span></div>`).join('')}</div>
     ${field('Add an agent',entrySelect(`data-su-pick="mapadd1" data-arg="${esc(id)}"`,'Pick an agent…'))}${delegBox(id)}
-    <div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="mapdel" data-arg="${esc(id)}">Stop using this channel</button><span class="hint">Its agents no longer hear or post there.</span></div>`};
+    <div class="dz"><button type="button" class="btn btn-danger sm" data-su="mapdel" data-arg="${esc(id)}">Stop using this channel</button><span class="hint">Its agents no longer hear or post there.</span></div>`};
   const h=sheet({title:'Channel',body:'<div data-live></div>'}),box=h.body.querySelector('[data-live]');
   S.live=()=>PL.paint(box,body());S.live()};
 ACT.mapflag=async(id,b)=>{const next=cloneRoutes(),a=next.find(r=>r.channel_id===id)?.agents?.[+b.dataset.j];if(!a)return;a[b.dataset.f]=!a[b.dataset.f];
@@ -283,7 +275,7 @@ function delegBox(id){const dg=S.ch.a?.delegation;if(!dg||!String(id).startsWith
   const n=String(id).slice(7),c=(dg.clients||{})[n];if(!c)return '';
   if(c.never)return `<div class="su-dg"><b>Can’t approve for you</b><p class="hint">${esc(c.never)}</p></div>`;
   const pick=c.on?c.scopes:(S.dgPick[n]||[]),days=c.on?Math.max(0,Math.ceil((c.expires*1000-Date.now())/86400000)):0;
-  return `<div class="su-dg"><div class="row su-tr" data-su-tog="dgon" data-arg="${esc(n)}"><span class="row-main"><span class="row-t">Can approve for you</span><span class="row-s">${esc([`From its own token only`,c.on&&`${plural(days,'day')} left (ticking a kind renews it for ${dg.grant_days})`,!dg.switch&&'the switch on Channels is off',c.recent&&`${c.recent} in the last day`].filter(Boolean).join(' · '))}</span></span><span class="row-v">${sw(c.on,'Can approve for you')}</span></div>
+  return `<div class="su-dg"><div class="row switch-row" data-su-tog="dgon" data-arg="${esc(n)}"><span class="row-main"><span class="row-t">Can approve for you</span><span class="row-s">${esc([`From its own token only`,c.on&&`${plural(days,'day')} left (ticking a kind renews it for ${dg.grant_days})`,!dg.switch&&'the switch on Channels is off',c.recent&&`${c.recent} in the last day`].filter(Boolean).join(' · '))}</span></span><span class="row-v">${sw(c.on,'Can approve for you')}</span></div>
     ${(c.linked||[]).length?PL.badge('warn','linked with '+c.linked.join(', ')):''}${c.problem?PL.badge('warn',c.problem):''}
     <div class="su-chips su-scopes" role="group" aria-label="Kinds of work">${dg.scopes.map(sc=>`<button type="button" class="chip mono" aria-pressed="${pick.includes(sc)}" data-su="dgscope" data-arg="${esc(n)}" data-sc="${esc(sc)}">${esc(sc)}</button>`).join('')}</div></div>`}
 async function dgPut(n,body){const r=await put('/api/agentchannel/delegation/'+enc(n),body);await chLoad();S.live?.();return !r.error}
@@ -307,17 +299,17 @@ ACT.plat=p=>{const set=pConfigured(p)||p==='agents';
   const box=h.body.querySelector('[data-live]');S.live=()=>{if(pConfigured(p)!==set&&p!=='agents'){ACT.plat(p);return}PL.paint(box,platBody(p))};S.live()};
 const stateLine=(p)=>{const x=pst(p),[k,t]=p==='agents'&&!pConfigured(p)?['mut','No clients']:PSTATE[x.state]||['mut',x.state||''];
   return `<div class="su-state">${PL.badge(k,t)}${x.user?`<span class="mut">as ${esc(p==='telegram'?'@'+x.user:x.user)}${x.team?' in '+esc(x.team):''}</span>`:''}${x.error?`<span class="err">${esc(x.error)}</span>`:''}</div>`};
-const step=(n,title,body,done)=>`<li class="su-step${done?' done':''}"><span class="su-step-n">${done?PL.icon('check',16):n}</span><div><div class="su-step-t">${title}</div>${body}</div></li>`;
+const step=(n,title,body,done)=>`<li class="step${done?' done':''}"><span class="step-n">${done?PL.icon('check',16):n}</span><div><div class="step-t">${title}</div>${body}</div></li>`;
 const ext=(href,label,cls='btn btn-out sm')=>`<a class="${cls}" href="${esc(href)}" target="_blank" rel="noreferrer">${label} ↗</a>`;
 const strangers=p=>{const l=pst(p).strangers||[];return l.length?`<div class="su-list">${l.map(x=>`<div class="su-li"><span><b>${esc(x.name)}</b>${x.username?` @${esc(x.username)}`:''} <span class="mono mut">${esc(x.id)}</span><br><span class="small mut">in ${esc(x.chat_name||x.chat)}, ${PL.ago(x.ts)} ago</span></span>
   <span class="su-acts"><button type="button" class="btn btn-solid sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="allow">Allow</button><button type="button" class="btn btn-soft sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="dismiss">Dismiss</button></span></div>`).join('')}</div>`
   :'<p class="hint">Nobody waiting. This updates by itself.</p>'};
 const runRow=(p,label)=>togRow({tog:'prun',arg:p,on:pst(p).enabled,title:label,sub:'Off, it stops answering until you turn it on'});
 const idsField=(label,name,vals,ph,hint)=>field(label,`<input type="text" class="mono" name="${name}" value="${esc((vals||[]).join(', '))}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">`,hint);
-const disc=(p,text)=>`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="pforget" data-arg="${p}">Disconnect</button><span class="hint">${text}</span></div>`;
+const disc=(p,text)=>`<div class="dz"><button type="button" class="btn btn-danger sm" data-su="pforget" data-arg="${p}">Disconnect</button><span class="hint">${text}</span></div>`;
 function platBody(p){const x=pst(p);
   if(p==='discord'){const d=x,inv=invited(),servers=(S.ch.g||[]).filter(g=>!OTHER(g)).map(g=>g.name);
-    if(!d.configured)return `<p class="hint">Each channel you map has agents: ones that <b>receive</b> get your messages there, ones that <b>send</b> can post there. Only you, the bot’s owner, can talk to them.</p><ol class="su-steps">
+    if(!d.configured)return `<p class="hint">Each channel you map has agents: ones that <b>receive</b> get your messages there, ones that <b>send</b> can post there. Only you, the bot’s owner, can talk to them.</p><ol class="steps">
       ${step(1,'Create the bot and paste its token',`<p class="hint">On the Developer Portal, click <b>New Application</b> and give it a name. Open <b>Bot</b>, click <b>Reset Token</b>, and copy it. Optional: on the same page, turn on <b>Message Content Intent</b> so you can talk to it without @mentioning it.</p>${ext('https://discord.com/developers/applications','Developer Portal')}
         ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="Bot token" required>')}`)}
       ${step(2,'Invite it to your server','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map channels to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
@@ -325,24 +317,24 @@ function platBody(p){const x=pst(p);
       :d.message_content_switch?'<p class="hint">The Message Content switch is on in Discord, but the bot connected before it was.</p><button type="button" class="btn btn-out sm" data-su="dreconnect">Reconnect now</button>'
       :`<p class="hint">${d.message_content_switch===false?'<b>Discord says the Message Content switch is off.</b> ':''}@mention the bot each time, or DM it. To talk without @mentioning, turn on <b>Message Content Intent</b> on the Bot page (under Privileged Gateway Intents) and save.</p><div class="su-acts">${ext(d.app_id?`https://discord.com/developers/applications/${d.app_id}/bot`:'https://discord.com/developers/applications','Bot page')}<button type="button" class="btn btn-out sm" data-su="dcheck">I turned it on</button></div>`;
     return `${stateLine(p)}<p class="hint">Token <span class="mono">${esc(d.token_hint)}</span> saved.</p>${PL.group(runRow(p,'Bot running'))}
-      <ol class="su-steps">${step(2,'Invite it to your server',`<p class="hint">${inv?`In ${esc(servers.join(', '))}.`:'Pick your server on Discord’s page, then come back here. This step completes on its own.'}</p>${d.invite_url?ext(d.invite_url,inv?'Invite to another server':'Invite the bot',inv?'btn btn-out sm':'btn btn-solid sm'):''}`,inv)}
+      <ol class="steps">${step(2,'Invite it to your server',`<p class="hint">${inv?`In ${esc(servers.join(', '))}.`:'Pick your server on Discord’s page, then come back here. This step completes on its own.'}</p>${d.invite_url?ext(d.invite_url,inv?'Invite to another server':'Invite the bot',inv?'btn btn-out sm':'btn btn-solid sm'):''}`,inv)}
       ${step(3,'Map channels to agents','<p class="hint">Close this and pick <b>Map a channel</b>.</p>',mappedOn('discord')>0)}</ol>
       ${PL.label('Messages')}${reading}
       ${PL.label('Who can talk to agents')}${idsField('People, by Discord user id','allowed_users',d.allowed_users,'e.g. 1562000000000000000','Only you can, as the bot’s owner (or its team’s members). People listed here can message agents and answer buttons as you do. To find an id, turn on Developer Mode in Discord, right-click the person and choose Copy User ID. Separate with commas.')}
       ${idsField('Bots that can post to agents','trusted_bots',d.trusted_bots,'e.g. 1562000000000000000','Other bots are ignored unless listed here. List only bots you control.')}
       ${disc(p,'The channel mapping is kept.')}`}
   if(p==='telegram'){const t=x;
-    if(!t.configured)return `<p class="hint">A private chat with your bot, or a group it’s in, works like a Discord channel. Telegram bots answer anyone who finds them, so peerlink ignores everyone until you allow them.</p><ol class="su-steps">
+    if(!t.configured)return `<p class="hint">A private chat with your bot, or a group it’s in, works like a Discord channel. Telegram bots answer anyone who finds them, so peerlink ignores everyone until you allow them.</p><ol class="steps">
       ${step(1,'Create the bot and paste its token',`<p class="hint">In Telegram, message @BotFather, send <span class="mono">/newbot</span>, and pick a name and a username. It answers with a token: paste it here.</p>${ext('https://t.me/BotFather','Open @BotFather')}
         ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="123456789:AAE…" required>')}`)}
       ${step(2,'Message it, then allow yourself','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map chats to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
     return `${stateLine(p)}<p class="hint">Token <span class="mono">${esc(t.token_hint)}</span> saved.</p>${PL.group(runRow(p,'Bot running'))}
-      <ol class="su-steps">${step(2,'Message it, then allow yourself',`<p class="hint">Open the bot and send it any message. You show up here; allow yourself, and the bot answers you from then on.</p>${t.user?ext('https://t.me/'+t.user,'Open @'+t.user):''}${strangers(p)}`,(t.allowed_users||[]).length>0)}
+      <ol class="steps">${step(2,'Message it, then allow yourself',`<p class="hint">Open the bot and send it any message. You show up here; allow yourself, and the bot answers you from then on.</p>${t.user?ext('https://t.me/'+t.user,'Open @'+t.user):''}${strangers(p)}`,(t.allowed_users||[]).length>0)}
       ${step(3,'Map chats to agents',`<p class="hint">Every chat the bot has heard from is listed under <b>Map a channel</b>. ${t.reads_messages?'In groups it reads every message.':'In groups, Telegram shows the bot only commands, @mentions and replies to it. To talk without @mentioning, send <span class="mono">/setprivacy</span> to @BotFather, choose Disable, then remove the bot from the group and add it again.'} Commands work too: <span class="mono">/status</span>, <span class="mono">/inbox</span>, <span class="mono">/peerlink run loop 5m check the deploy</span>.</p>`,mappedOn('telegram')>0)}</ol>
       ${idsField('Allowed people, by Telegram user id','allowed_users',t.allowed_users,'e.g. 123456789','They can message agents and answer buttons as you do. Separate with commas.')}
       ${disc(p,'The chat mapping and allowed people are kept.')}`}
   if(p==='slack'){const t=x;
-    if(!t.configured)return `<p class="hint">A channel your Slack app is in, or a direct message with it, works like a Discord channel. Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them.</p><ol class="su-steps">
+    if(!t.configured)return `<p class="hint">A channel your Slack app is in, or a direct message with it, works like a Discord channel. Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them.</p><ol class="steps">
       ${step(1,'Create the app and paste its two tokens',`<p class="hint">The link fills in everything the app needs; pick your workspace and click <b>Create</b>.</p>${ext(t.manifest_url,'Create the app on Slack','btn btn-solid sm')}
         <p class="hint"><b>App-level token:</b> on the app’s <b>Basic Information</b> page, under <b>App-Level Tokens</b>, click <b>Generate Token and Scopes</b>, add the scope <span class="mono">connections:write</span>, and copy the token (it starts <span class="mono">xapp-</span>).</p>
         ${field('App-level token','<input type="password" class="mono" name="app_token" autocomplete="off" spellcheck="false" placeholder="xapp-…" required>')}
@@ -350,7 +342,7 @@ function platBody(p){const x=pst(p);
         ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="xoxb-…" required>')}`)}
       ${step(2,'Message it, then allow yourself','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map channels to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
     return `${stateLine(p)}<p class="hint">Tokens <span class="mono">${esc(t.token_hint)}</span> and <span class="mono">${esc(t.app_token_hint)}</span> saved.</p>${PL.group(runRow(p,'App running'))}
-      <ol class="su-steps">${step(2,'Message it, then allow yourself',`<p class="hint">In Slack, find <b>${esc(t.user||'peerlink')}</b> under <b>Apps</b> and send it any message. You show up here; allow yourself, and it answers you from then on.</p>${strangers(p)}`,(t.allowed_users||[]).length>0)}
+      <ol class="steps">${step(2,'Message it, then allow yourself',`<p class="hint">In Slack, find <b>${esc(t.user||'peerlink')}</b> under <b>Apps</b> and send it any message. You show up here; allow yourself, and it answers you from then on.</p>${strangers(p)}`,(t.allowed_users||[]).length>0)}
       ${step(3,'Map channels to agents',`<p class="hint">Your direct message with the app, and every channel it’s in, is listed under <b>Map a channel</b>. To add it to a channel, type <span class="mono">/invite @${esc(t.user||'peerlink')}</span> there; it reads every message in that channel. Commands work too: <span class="mono">/peerlink status</span>, <span class="mono">/peerlink inbox</span>.</p>`,mappedOn('slack')>0)}</ol>
       ${idsField('Allowed people, by Slack member id','allowed_users',t.allowed_users,'e.g. U012AB3CD','They can message agents and answer buttons as you do. Separate with commas.')}
       ${disc(p,'The channel mapping and allowed people are kept.')}`}
@@ -424,8 +416,8 @@ function setVal(s,v){if(s.type==='choice'){const o=s.opts.find(o=>o[0]===v);retu
   return v?esc(v):'<span class="mut">Not set</span>'}
 const setRow=s=>{const v=C()[s.k];if(s.type==='bool')return togRow({tog:'cfg',arg:s.k,on:v,title:esc(s.t),sub:esc(s.sub||'')});
   return row({act:'set',arg:s.k,title:esc(s.t),sub:s.type==='long'?esc(v?PL.plain(v).slice(0,90)+(v.length>90?'…':''):'Empty: agents get the default'):s.type==='list'&&(v||[]).length?esc(v.join(', ')):'',value:setVal(s,v)})};
-// Desktop alerts belong to this browser, not the daemon: the same permission and preference the shell reads to alert.
-// (Phase 2: the shell's [data-notify] handler does the same; one of the two should go.)
+// Desktop alerts belong to this browser, not the daemon: the permission and the preference ('notify') the shell
+// reads to alert. This switch is the one place they're turned on or off.
 const alertsRow=()=>{const has=!!window.Notification,blocked=has&&Notification.permission==='denied';
   return togRow({tog:'alerts',on:PL.notifyOn(),title:'Desktop alerts',sub:!has?'This browser has no desktop notifications':blocked?'Blocked for this page: allow them in the browser’s site settings':'A notification for each new Inbox item while this tab is in the background'})};
 function renderSettings(){PL.paint($('#su-settings'),`<div class="su-cards">${SETS.map(([g,l])=>card(g,l.map(setRow).join(''))).join('')}${card('This browser',alertsRow())}</div>`)}
@@ -438,7 +430,7 @@ TOG.alerts=async(_,on,quiet)=>{
   PL.render();if(!quiet)PL.toast(`Desktop alerts ${on?'on':'off'}`,{undo:()=>TOG.alerts(_,!on,true)});return true};
 ACT.set=k=>{const s=SETK[k],v=C()[k];let input;
   if(s.type==='num')input=field(s.t+(s.unit?` (${s.unit})`:''),`<input type="number" name="v" value="${esc(v??0)}"${s.min!=null?` min="${s.min}"`:''}${s.max!=null?` max="${s.max}"`:''}${s.step?` step="${s.step}"`:''} required>`,esc(s.hint||''));
-  else if(s.type==='choice')input=`<fieldset class="su-radios"><legend class="su-sr">${esc(s.t)}</legend>${s.opts.map(([o,t,h])=>`<label class="su-radio"><input type="radio" name="v" value="${o}"${o===v?' checked':''}><span><b>${esc(t)}</b>${h?`<span class="hint">${esc(h)}</span>`:''}</span></label>`).join('')}</fieldset>`;
+  else if(s.type==='choice')input=`<fieldset class="radios"><legend class="sr-only">${esc(s.t)}</legend>${s.opts.map(([o,t,h])=>`<label class="radio"><input type="radio" name="v" value="${o}"${o===v?' checked':''}><span><b>${esc(t)}</b>${h?`<span class="hint">${esc(h)}</span>`:''}</span></label>`).join('')}</fieldset>`;
   else if(s.type==='long')input=field(s.t,`<textarea name="v" class="su-guide" placeholder="${esc(C().default_guidance||'')}">${esc(v||'')}</textarea>`,'Leave it empty to use the default, shown in grey.');
   else if(s.type==='list')input=field(s.t,`<textarea name="v" rows="4" placeholder="http://other-machine.local:7899">${esc((v||[]).join('\n'))}</textarea>`,esc(s.hint||''));
   else input=field(s.t,`<input type="${s.type==='secret'?'password':'text'}" name="v" value="${esc(v??'')}" autocomplete="off" spellcheck="false">`,esc(s.hint||''));
@@ -451,15 +443,13 @@ ACT.set=k=>{const s=SETK[k],v=C()[k];let input;
 // ---- Controls ----------------------------------------------------------------------------------------------------
 function renderControls(st){const s=st.status;
   PL.paint($('#su-controls'),`<div class="su-cards">${card('This daemon',row({icon:'controls',title:'Daemon',sub:esc(`${s.host} · port ${s.port}`),value:`<span class="mono">${esc(s.version)}</span>`})
-    +row({tile:KEYICON,title:'Key',sub:'Agents and sign-in links use it',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
+    +row({icon:'key',title:'Key',sub:'Agents and sign-in links use it',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
     +row({icon:'agents',title:'Browsers',sub:'Sign-in links work once and expire after 60 s',value:esc(s.browsers+' signed in')})
-    +row({act:'logout',tile:OUTICON,title:'Sign out of this browser',sub:'Run /peerlink web in any agent to sign in again',chev:false}))}
-    ${card('Careful',row({act:'restart',icon:'controls',title:'Restart the daemon',sub:'Agents reconnect by themselves. Queued messages are kept.',chev:false,cls:'su-danger'})
-      +row({act:'logoutall',icon:'agents',title:'Sign out every browser',sub:'This one included',chev:false,cls:'su-danger'})
-      +row({act:'rotate',tile:KEYICON,title:'Rotate the key',sub:'Signs out every browser; agents pick up the new key by themselves',chev:false,cls:'su-danger'})
-      +row({act:'clean',tile:TRASHICON,title:'Start clean',sub:'Clear spaces, offline agents, history, tasks or schedules. Backed up first.',cls:'su-danger'}))}</div>`)}
-const OUTICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>';
-const TRASHICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
+    +row({act:'logout',icon:'signout',title:'Sign out of this browser',sub:'Run /peerlink web in any agent to sign in again',chev:false}))}
+    ${card('Careful',row({act:'restart',icon:'controls',title:'Restart the daemon',sub:'Agents reconnect by themselves. Queued messages are kept.',chev:false,cls:'danger'})
+      +row({act:'logoutall',icon:'agents',title:'Sign out every browser',sub:'This one included',chev:false,cls:'danger'})
+      +row({act:'rotate',icon:'key',title:'Rotate the key',sub:'Signs out every browser; agents pick up the new key by themselves',chev:false,cls:'danger'})
+      +row({act:'clean',icon:'trash',title:'Start clean',sub:'Clear spaces, offline agents, history, tasks or schedules. Backed up first.',cls:'danger'}))}</div>`)}
 ACT.logout=async()=>{await post('/api/web/logout');location.reload()};
 ACT.logoutall=async()=>{if(!await ask('Sign out every browser, including this one?'))return;await post('/api/web/logout',{all:true});location.reload()};
 ACT.rotate=async()=>{if(!await ask('Rotate the key? Every browser is signed out; agents pick up the new key by themselves.'))return;await post('/api/key/rotate');location.reload()};
@@ -467,7 +457,7 @@ ACT.restart=async()=>{if(!await ask('Restart the peerlink daemon? Agents reconne
   await post('/api/restart');PL.toast('Restarting…');setTimeout(()=>location.reload(),2500)};
 const CLEAN=[['spaces','Spaces, leads and links'],['agents','Offline agents'],['history','Message history'],['tasks','Tasks'],['schedules','Schedules']];
 ACT.clean=()=>sheet({title:'Start clean',danger:true,saveLabel:'Clear',body:`<p class="hint">Clear what you tick. Rules, settings, chat channels, outside clients and the key stay. Running agents stay, and the files are copied to a backup first.</p>
-  <fieldset class="su-checks"><legend>Clear</legend>${CLEAN.map(([k,t])=>`<label class="check"><input type="checkbox" name="part" value="${k}"> ${esc(t)}</label>`).join('')}</fieldset>`,
+  <fieldset class="radios"><legend>Clear</legend>${CLEAN.map(([k,t])=>`<label class="check"><input type="checkbox" name="part" value="${k}"> ${esc(t)}</label>`).join('')}</fieldset>`,
   onSave:async f=>{const parts=[...f.querySelectorAll('[name=part]:checked')].map(c=>c.value);if(!parts.length)return 'Tick what to clear first.';
     if(!await ask(`Clear ${parts.map(p=>CLEAN.find(c=>c[0]===p)[1].toLowerCase()).join(', ')}? Rules and running agents stay; the files are backed up first.`,{ok:'Clear'}))return false;
     const r=await post('/api/clean',{parts});if(r.error)return 'Not cleared: '+r.error;
@@ -529,11 +519,9 @@ ACT.help=sec=>sheet({title:sec?`How ${SECS.find(x=>x[0]===sec)[1].toLowerCase()}
 
 // ---- Events ------------------------------------------------------------------------------------------------------
 document.addEventListener('click',e=>{const b=e.target.closest('[data-su]');
-  if(b&&ACT[b.dataset.su]&&!b.disabled){e.preventDefault();Promise.resolve(ACT[b.dataset.su](b.dataset.arg,b)).catch(x=>PL.toast(String(x.message||x),{kind:'bad'}));return}
-  const t=e.target.closest('[data-su-tog]');if(!t||e.target.closest('a,[data-su]'))return;
-  const s=t.matches('.su-sw')?t:t.querySelector('.su-sw');if(!s||s.disabled||t.classList.contains('busy'))return;
-  const on=s.getAttribute('aria-checked')!=='true';s.setAttribute('aria-checked',String(on));t.classList.add('busy');
-  Promise.resolve(TOG[t.dataset.suTog]?.(t.dataset.arg,on)).catch(x=>PL.toast(String(x.message||x),{kind:'bad'})).finally(()=>{t.classList.remove('busy');PL.render()})});
+  if(b&&ACT[b.dataset.su]&&!b.disabled){e.preventDefault();Promise.resolve(ACT[b.dataset.su](b.dataset.arg,b)).catch(x=>PL.toast(String(x.message||x),{kind:'bad'}))}});
+// Switches apply at once (TOG[name](arg, on) says whether it took), each with Undo in its toast.
+PL.onSwitch('[data-su-tog]',(t,on)=>TOG[t.dataset.suTog]?.(t.dataset.arg,on));
 document.addEventListener('change',e=>{const t=e.target.closest?.('[data-su-pick]');if(t&&PICK[t.dataset.suPick])PICK[t.dataset.suPick](t.dataset.arg,t)});
 
 // Rules: every 5 s on Rules, 15 s on the overview, every minute elsewhere (for the gear's count). Channels: every

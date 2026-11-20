@@ -7,21 +7,15 @@
 // items), counted once per conversation. It's what the page is for, and unlike "messages in the snapshot" it goes to
 // zero when you've answered everything.
 
-// Schedules (schedules.js) uses the bare when() the old Messages page defined. Kept as a window property, not a
-// declaration, so a page that declares its own when() still loads.
-if(!window.when)window.when=ts=>new Date(ts*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-
 (()=>{
 const MX={drafts:new Map(),kinds:new Map(),answer:new Map(),hist:{},older:null,olderBusy:false,olderAsked:new Set(),
   shown:'',seenRoute:'',focus:false,open:new Set(),space:'',agent:''};
 const esc=PL.esc;
 
 // ---- Who's at each end ---------------------------------------------------------------------------------------------
-// You are one party, whether you wrote from the web UI ("alex (web UI)") or an agent wrote to you ("alex"). A chat
-// channel is its own party, by its id; anyone else is their name, which survives an agent's /clear.
-const meName=st=>st?.snap?.inbox?.user||'you';
-const party=(x,side)=>{const who=String(x[side]||'');if(who==='user')return 'you';if(who.startsWith('discord:'))return who;
-  return String(x[side+'_name']||who).toLowerCase()};
+// The shell's PL.party: you are one party, whether you wrote from the web UI ("alex (web UI)") or an agent wrote to
+// you ("alex"); a chat channel is its own party, by its id; anyone else is their name, which survives a /clear.
+const meName=PL.me,party=PL.party;
 // A key in a link: the bar stays readable.
 const keyHref=key=>'#messages/'+encodeURIComponent(key).replace(/%7C/gi,'|');
 const keyOf=(a,b)=>a==='you'?'you|'+b:b==='you'?'you|'+a:[a,b].sort().join('|');
@@ -29,12 +23,11 @@ const ends=key=>{const i=key.indexOf('|');return i<0?['you',key]:[key.slice(0,i)
 const isChan=t=>String(t).startsWith('discord:');
 const isSched=x=>x.from==='peerlink'&&/^schedule /.test(x.from_name||'');
 const isAgentTok=t=>t!=='you'&&!isChan(t)&&!t.startsWith('space:')&&t!=='peerlink'&&!/^schedule /.test(t);
-// The ends the daemon files a conversation under (GET /api/conversation): you have two names in its log.
-const apiParties=(t,st)=>{const me=meName(st).toLowerCase();return t==='you'?['n:'+me,'n:'+me+' (web ui)']:isChan(t)?[t]:['n:'+t]};
+const apiParties=PL.apiParties;
 // A key as the route gives it, in the page's own form.
 const normTok=(t,st)=>{t=String(t||'').trim();if(isChan(t))return t;t=t.replace(/^n:/,'').toLowerCase();const me=meName(st).toLowerCase();
   return t===me||t===me+' (web ui)'||t==='user'||t==='you'?'you':t};
-const chanLabel=n=>String(n||'').replace(/^.* on (?=#)/,'').replace(/^#/,'').replace(/ on (Discord|Telegram|Slack)$/,'');
+const chanLabel=PL.chanLabel;
 
 // ---- The messages the page knows about ----------------------------------------------------------------------------
 // The snapshot holds the last 100; "Load older" adds the last 500 the daemon keeps (GET /api/messages?limit=500).
@@ -44,7 +37,7 @@ const spacesOf=x=>{const by=n=>PL.state.peers.find(p=>p.name===n)?.space;return 
 // Questions agents asked you, by conversation. The daemon decides what still waits (the Inbox's question items); a
 // question older than the messages here is filed under you and its sender.
 function waiting(st,msgs){const by=new Map(msgs.map(m=>[m.id,m])),out=new Map();
-  for(const i of st.inbox){if(i.kind!=='question')continue;const x=by.get(i.id);
+  for(const i of PL.waiting(st)){if(i.kind!=='question')continue;const x=by.get(i.id);
     const key=x?keyOf(party(x,'from'),party(x,'to')):keyOf('you',String(i.who||'').toLowerCase());
     if(!out.has(key))out.set(key,[]);out.get(key).push({id:i.id,who:i.who,since:i.since,text:i.text})}
   return out}
@@ -64,15 +57,13 @@ function conversations(st,msgs,{sched=false}={}){const map=new Map();
 const nameOf=(c,t)=>t==='you'?'you':t.startsWith('space:')?'lead of '+t.slice(6):c.names[t]||t;
 
 // ---- Small pieces ---------------------------------------------------------------------------------------------------
-const shortTime=ts=>{if(!ts)return '';const d=new Date(ts*1000),now=new Date();
-  return d.toDateString()===now.toDateString()?d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})
-    :d.toLocaleDateString([],d.getFullYear()===now.getFullYear()?{month:'short',day:'numeric'}:{year:'numeric',month:'short',day:'numeric'})};
+const shortTime=PL.short;
 const avatarOf=(c,t,size)=>isChan(t)?`<span class="mx-chan" style="--av:${size}px">${platLogo(t.slice(8))}</span>`:PL.avatar(nameOf(c,t),size);
-const avatars=(c,size=40)=>c.a==='you'?avatarOf(c,c.b,size):`<span class="mx-pair" style="--av:${size}px">${avatarOf(c,c.a,Math.round(size*.7))}${avatarOf(c,c.b,Math.round(size*.7))}</span>`;
+const avatars=(c,size=40)=>c.a==='you'?avatarOf(c,c.b,size):PL.avatarPair(avatarOf(c,c.a,Math.round(size*.7)),avatarOf(c,c.b,Math.round(size*.7)),size);
 // "you ↔ web-app", as plain text (a row is a link already) or with each agent linked (the thread's head).
 const endLabel=(c,t,link)=>t==='you'?'<span class="mx-you">you</span>':link&&isAgentTok(t)?`<b>${PL.agentLink(nameOf(c,t))}</b>`:`<b>${esc(nameOf(c,t))}</b>`;
 const pairLabel=(c,link)=>`${endLabel(c,c.a,link)}<span class="mx-arrow" aria-label="and">↔</span>${endLabel(c,c.b,link)}`;
-const senderOf=x=>x.from==='user'?'you':isChan(x.from)?String(x.from_name||'').replace(/ on #?.*$/,'')||'you':x.from_name;
+const senderOf=PL.sender;
 const statusText=x=>x.acked?'read':x.status||'';
 const ST_KIND={queued:'warn',expired:'bad',failed:'bad',forwarding:'info'};
 
@@ -95,8 +86,7 @@ function chipsHtml(all,nWait){const view=PL.pref('msg.view','all'),sched=PL.pref
 
 // ---- The thread ---------------------------------------------------------------------------------------------------
 // The choices a question offers: what the daemon kept (a chat post), or the numbered list it appends to the text.
-const choicesOf=x=>{if((x.options||[]).length)return x.options;const m=String(x.text||'').match(/(?:\n\d+\. [^\n]+)+\s*$/);if(!m)return [];
-  const l=m[0].trim().split('\n').map(r=>r.match(/^(\d+)\. (.+)$/));return l.every((r,i)=>r&&+r[1]===i+1)?l.map(r=>r[2].trim()):[]};
+const choicesOf=x=>PL.questionOptions(x.text,x.options).opts;
 function bubble(x,c,qids,route,ans,replied){const from=party(x,'from'),mine=from==='you'||isChan(from),right=!mine&&c.a!=='you'&&from===c.b;
   const who=mine?(x.from==='user'?'you':`${isChan(x.from)?platLogo(x.from.slice(8)):''}<span>${esc(senderOf(x))}</span>`)
     :isSched(x)?PL.schedLink(x.from_name.slice(9),x.from_name):PL.agentLink(x.from_name);
@@ -109,7 +99,7 @@ function bubble(x,c,qids,route,ans,replied){const from=party(x,'from'),mine=from
     <div class="mxb-h"><span class="who">${who}</span><span>${esc(shortTime(x.ts))}</span><span>${PL.msgLink(x.id)}</span>${st?`<span class="mx-st${ST_KIND[st]?' '+ST_KIND[st]:''}">${esc(st)}</span>`:''}${tags}</div>
     <div class="md">${PL.md(x.text)}</div>
     ${long?`<button type="button" class="btn btn-ghost sm mx-more" data-mxmore="${esc(x.id)}">${clamp?'Show all':'Show less'}</button>`:''}
-    ${open?`<div class="mx-acts">${choicesOf(x).map(o=>`<button type="button" class="btn btn-out sm" data-mxquick="${esc(x.id)}" data-text="${esc(o)}">${esc(o)}</button>`).join('')}${qids.size>1?(ans===x.id?'<span class="badge b-acc">the reply box answers this one</span>':`<button type="button" class="btn btn-soft sm" data-mxans="${esc(x.id)}">Answer this one</button>`):''}</div>`:''}</div>`}
+    ${open?`<div class="mx-acts" data-ikind="question" data-iid="${esc(x.id)}" data-iwho="${esc(x.from_name||'')}">${PL.optionButtons(choicesOf(x))}${qids.size>1?(ans===x.id?'<span class="badge b-acc">the reply box answers this one</span>':`<button type="button" class="btn btn-soft sm" data-mxans="${esc(x.id)}">Answer this one</button>`):''}</div>`:''}</div>`}
 function threadMsgs(c){const by=new Map();const h=MX.hist[c.key];for(const x of h?.list||[])by.set(x.id,x);for(const x of c.list)by.set(x.id,x);
   return [...by.values()].sort((a,b)=>a.ts-b.ts)}
 function headHtml(c,st){const t=c.a==='you'?c.b:'',p=t&&isAgentTok(t)?PL.findAgent(nameOf(c,t)):null;
@@ -206,19 +196,8 @@ function render(st,route){const root=PL.el('messages'),box=root.querySelector('.
   else if(stick&&!/^m\d+$/.test(route.id))s.scrollTop=s.scrollHeight;
   if(MX.focus){MX.focus=false;comp.querySelector('textarea')?.focus({preventScroll:true})}}
 
-// ---- Agent picker: a small sheet, for a new conversation and for the Agent filter ------------------------------------
-function pickAgent({title,names,lead=false,everyone=false,onPick}){const st=PL.state;
-  const live=new Map(st.peers.filter(p=>!p.remote).map(p=>[p.name.toLowerCase(),p]));
-  const rowFor=(val,label,sub,av)=>`<button type="button" class="mxpick-row" data-mxpick="${esc(val)}" data-find="${esc((label+' '+sub).toLowerCase())}">${av}<span class="row-main"><span class="row-t">${esc(label)}</span>${sub?`<span class="row-s">${esc(sub)}</span>`:''}</span></button>`;
-  const agentRow=n=>{const p=live.get(n.toLowerCase());return rowFor(p?p.name:n,p?p.name:n,p?[p.space&&p.space!=='default'?p.space:'no space',p.busy?'working':'idle'].join(' · '):'not running',PL.avatar(n,36))};
-  const leads=lead?Object.keys(st.leads||{}).sort().map(s=>rowFor('space:'+s,'Lead of '+s,(st.leads[s].name||'')+(st.leads[s].live?'':' · not running'),`<span class="tile">${PL.icon('spaces',18)}</span>`)).join(''):'';
-  const body=`<input type="search" class="input" placeholder="Find an agent" aria-label="Find an agent" autocomplete="off" data-mxfind>
-    <div class="group mxpick">${everyone?rowFor('','Everyone','every conversation',`<span class="tile">${PL.icon('agents',18)}</span>`):''}${names.map(agentRow).join('')||'<p class="mx-wait">No agents are running.</p>'}</div>
-    ${leads?`${PL.label('Space leads')}<div class="group mxpick">${leads}</div>`:''}`;
-  const s=PL.sheet.open({title,body});
-  s.body.addEventListener('input',e=>{const v=e.target.value.trim().toLowerCase();s.body.querySelectorAll('[data-mxpick]').forEach(r=>r.hidden=!!v&&!r.dataset.find.includes(v))});
-  s.body.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[data-mxfind]')){e.preventDefault();s.body.querySelector('[data-mxpick]:not([hidden])')?.click()}});
-  s.body.addEventListener('click',e=>{const r=e.target.closest('[data-mxpick]');if(!r)return;s.close();onPick(r.dataset.mxpick)})}
+// ---- New message: the shell's agent picker (PL.pickAgent) -------------------------------------------------------------
+const pickAgent=PL.pickAgent;
 function newMessage(){const names=PL.state.peers.filter(p=>!p.remote).map(p=>p.name).sort((x,y)=>x.localeCompare(y));
   pickAgent({title:'New message',names,lead:true,onPick:v=>{MX.focus=true;PL.go(keyHref('you|'+v.toLowerCase()))}})}
 function help(){PL.sheet.open({title:'How Messages works',body:`<div class="md">
@@ -243,14 +222,8 @@ async function send(f){const text=f.elements.text.value.trim(),err=f.querySelect
   if(f.dataset.to.startsWith('space:')&&r.to)PL.go(keyHref('you|'+String(r.to).toLowerCase()));
   PL.refresh()}
 
-// One click: a question's choice goes back as your answer.
-async function quick(b){b.disabled=true;let r;
-  try{r=await PL.post('/api/inbox',{kind:'question',id:b.dataset.mxquick,action:'reply',text:b.dataset.text})}catch(e){r={error:String(e.message||e)}}
-  b.disabled=false;if(r.error){PL.toast(r.error,{kind:'bad'});return}
-  PL.toast(`Answered ${b.dataset.mxquick}: ${b.dataset.text}`);PL.refresh()}
-
 PL.page('messages',{title:'Messages',
-  html:`<div class="mx-head"><h1>Messages</h1><button type="button" class="icon-btn mx-help" data-mxhelp aria-label="How Messages works">?</button><button type="button" class="btn btn-out sm" data-mxnew>${PL.icon('plus',18)}New message</button></div>
+  html:`<div class="mx-head"><h1>Messages</h1>${PL.helpBtn('How Messages works','data-mxhelp')}<button type="button" class="btn btn-out sm" data-mxnew>${PL.icon('plus',18)}New message</button></div>
 <div class="mx"><div class="mx-list"><div class="mx-tools"><input id="mxq" type="search" placeholder="Search messages" aria-label="Search messages" autocomplete="off"><div class="chips" id="mxchips"></div></div>
 <div class="mx-scroll"><div id="mxrows"></div></div></div>
 <div class="mx-thread"><div id="mxhead"></div><div class="mx-body"><div id="mxbody"></div></div><div id="mxcomp"></div></div></div>`,
@@ -278,7 +251,6 @@ root.addEventListener('click',e=>{const t=e.target.closest('button,a');if(!t)ret
   else if(d.mxmore!==undefined){MX.open.has(d.mxmore)?MX.open.delete(d.mxmore):MX.open.add(d.mxmore);PL.render()}
   // The box may hold a draft (kept per conversation): it's repainted at once with the new choice.
   else if(d.mxkind!==undefined){MX.kinds.set(t.closest('#mxform').dataset.key,d.mxkind);forceComposer();PL.render()}
-  else if(d.mxquick!==undefined)quick(t);
   else if(d.mxans!==undefined){const key=root.querySelector('#mxform')?.dataset.key;if(!key)return;MX.answer.set(key,d.mxans);MX.kinds.set(key,'message');
     forceComposer();PL.render();root.querySelector('#mxform textarea')?.focus()}});
 })();

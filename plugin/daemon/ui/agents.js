@@ -5,10 +5,10 @@
 // happens in a sheet. Everything here is inside one function, so no name leaks into the other pages' scripts.
 (()=>{
 const AG={layout:pref('alayout','list')==='chart'?'chart':'list',off:pref('agoff','')==='1',mode:'message',shown:undefined,
-  drafts:new Map(),answers:new Map(),moreClosed:new Set(),sheet:null,lastHash:location.hash,reverting:false,listSel:''};
+  drafts:new Map(),answers:new Map(),moreClosed:new Set(),sheet:null,tsheet:null,listSel:''};
 
 PL.page('agents',{title:'Agents',
-  html:`<div class="ag-top"><h1>Agents</h1><button type="button" class="icon-btn ag-help" data-aghelp aria-label="How agents and spaces work">?</button></div>
+  html:`<div class="ag-top"><h1>Agents</h1>${PL.helpBtn('How agents and spaces work','data-aghelp')}</div>
 <div class="ag-wrap" id="agwrap">
   <div class="ag-side" id="agside">
     <div class="ag-tools">
@@ -35,19 +35,18 @@ const headline=x=>{if(x.headline)return x.headline;const first=String(x.summary|
   return first.length>80?first.slice(0,first.lastIndexOf(' ',78)>40?first.lastIndexOf(' ',78):78)+'…':first};
 const short=d=>{const t=tilde(d).split('/');return t.length>3?'…/'+t.slice(-2).join('/'):t.join('/')};
 // What waits on you from this agent: its questions, tasks for you, approvals it asked for and its feedback.
-const itemsFor=(st,x)=>x.remote?[]:st.inbox.filter(i=>i.who===x.name);
+const itemsFor=(st,x)=>x.remote?[]:PL.waiting(st).filter(i=>i.who===x.name);
 const ownsTask=(x,t)=>(x.task_ids||[]).includes(t.id)||(!!t.owner_cwd&&t.owner_cwd===x.cwd);
 const askedTask=(x,t)=>t.requester?.id===x.id||(!!x.cwd&&t.requester?.cwd===x.cwd);
 const blockedOf=(st,x)=>st.tasks.filter(t=>isLive(t)&&t.blocked&&ownsTask(x,t));
 const leadBadge=x=>x.leads?PL.badge('acc',x.leads==='only'?'Lead · only agent':'Lead'):'';
-const TBADGE={open:['info','Open'],in_progress:['info','In progress'],done:['ok','Done'],failed:['bad','Failed'],cancelled:['mut','Cancelled']};
-const tBadge=t=>t.blocked&&isLive(t)?PL.badge('warn','Blocked'):PL.badge(...(TBADGE[t.status]||['mut',String(t.status)]));
+const tBadge=t=>PL.taskBadge(t,{blocked:true});
 const setSpaceOf=x=>x.space_source==='agent'?(x.space==='default'?'unassigned':x.space):'';
 const spaceWhy=x=>x.space_source==='started'?'the agent that started it asked for it':x.space_source==='agent'?'you put it here':x.space_source==='set'?'you put its folder here':x.space_source==='file'?'from '+tilde(x.space_from):'no space set';
 const roleLine=(st,x)=>{const how={set:'you picked it',only:'it was the only agent in the space'}[x.leads]||'';const led=st.leads[x.space];
   return x.leads?`Leads ${esc(spaceName(x.space))}${x.parent?`, inside ${esc(x.parent)}`:''} · ${how}`:`Member${led?` · led by ${led.live?PL.agentLink(led.name):esc(led.name)+' (offline)'}`:''}`};
 const spaceNames=st=>[...new Set([...Object.keys(st.leads||{}),...st.peers.map(p=>p.space)])].filter(n=>n&&n!=='default').sort();
-const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+const plural=PL.plural;
 // The value that matters for a row: what waits on you, or a blocked task, before how full its context is.
 const rowValue=(st,x)=>{const n=itemsFor(st,x).length,b=blockedOf(st,x).length;
   if(n||b)return (n?PL.badge('warn',n>1?`waiting on you · ${n}`:'waiting on you'):'')+(b?PL.badge('bad','Blocked'):'');
@@ -96,17 +95,18 @@ const offlineHtml=st=>st.offline.length?`<div class="ag-sec"><div class="ag-sec-
   :`<div class="ag-sec"><div class="ag-sec-h">Offline · 0</div><p class="small mut">No agent has gone offline lately.</p></div>`;
 
 // ---- The detail -----------------------------------------------------------------------------------------------------
-const stat=(k,v,{cls='',extra='',sub=''}={})=>`<div class="ag-stat"><div class="k">${k}</div><div class="v${cls?' '+cls:''}">${v}</div>${extra}${sub?`<div class="s">${sub}</div>`:''}</div>`;
+const stat=PL.stat;
 function headHtml(st,x){const items=itemsFor(st,x),blocked=blockedOf(st,x).length;
   const others=st.peers.filter(y=>y.id!==x.id&&y.cwd===x.cwd&&y.space===x.space);
   const badges=[PL.badge('mut',spaceName(x.space)),leadBadge(x),x.muted?PL.badge('warn','muted'):'',x.terminating?PL.badge('bad','ending…'):''].join('');
   const ctx=x.context;
-  const tiles=x.remote?'':`<div class="ag-stats">
+  const tiles=x.remote?'':`<div class="stats ag-stats">
     ${stat('Context',ctx==null?'?':Math.round(ctx)+'%',{cls:ctx>=80?'bad':'',extra:ctx==null?'':`<span class="meter${ctx>=80?' m-bad':ctx>=50?' m-warn':''}"><i style="width:${Math.max(0,Math.min(100,ctx))}%"></i></span>`,sub:ctx>=80?'close to compacting':''})}
     ${stat('Sent / hour',x.sent_hour||0,{cls:x.sent_hour>=20?'warn':'',sub:x.sent_hour>=20?'chatty: each one can cost its recipient a turn':''})}
     ${stat('Open tasks',x.open_tasks||0,{sub:blocked?`<span class="ag-bad">${blocked} blocked</span>`:''})}
     ${stat('Waiting on you',items.length,{cls:items.length?'warn':''})}</div>`;
-  const owes=x.threads?.owes||[],waits=x.threads?.waiting||[];
+  const owes=x.threads?.owes||[],waits=x.threads?.waiting||[],me=PL.me(st).toLowerCase();
+  const withWho=n=>[me,'user','you'].includes(String(n).toLowerCase())?'you':PL.agentLink(n);
   return `<div class="ag-dhead">${PL.avatar(x.name,48)}<div class="ag-dtitle"><h2 class="ag-name">${esc(x.name)}${x.remote?` <span class="ag-host">@${esc(x.host)}</span>`:''}</h2>
       <div class="ag-meta"><span class="dot${x.busy?' busy':''}"></span>${stateText(x)} ${badges}</div></div>
       ${x.remote?'':`<div class="ag-dacts"><button type="button" class="btn btn-out sm" data-agnewtask>${PL.icon('plus',18)}New task</button><button type="button" class="icon-btn" data-agmenu aria-label="More actions for ${esc(x.name)}">${PL.icon('more',22)}</button></div>`}</div>
@@ -118,34 +118,12 @@ function headHtml(st,x){const items=itemsFor(st,x),blocked=blockedOf(st,x).lengt
       <span class="k">Space</span><span>${esc(spaceName(x.space))} <span class="mut">· ${esc(spaceWhy(x))}</span>${(x.also||[]).length?` <span class="mut">· also in ${x.also.map(esc).join(', ')}</span>`:''}</span>
       <span class="k">Lead</span><span>${roleLine(st,x)}</span></div>`:''}
     ${others.length?`<div class="ag-also small"><span class="k">Also in this folder</span> ${others.map(o=>`${PL.agentLink(o.id,o.name)} <span class="mut">(${o.busy?'working':'idle'})</span>`).join(', ')}</div>`:''}
-    ${owes.length||waits.length?`<div class="ag-threads">${PL.label('Open requests')}<div class="group">${owes.map(t=>`<div class="row"><span class="row-main"><span class="row-t small">Owes ${PL.agentLink(t.with)} a reply</span><span class="row-s">${PL.msgLink(t.id)}: ${esc(plain(t.text).slice(0,110))}</span></span></div>`).join('')}
-      ${waits.map(t=>`<div class="row"><span class="row-main"><span class="row-t small">Waiting on ${PL.agentLink(t.with)}</span><span class="row-s">${PL.msgLink(t.id)}: ${esc(plain(t.text).slice(0,110))}</span></span></div>`).join('')}</div></div>`:''}
+    ${owes.length||waits.length?`<div class="ag-threads">${PL.label('Open requests')}<div class="group">${owes.map(t=>`<div class="row"><span class="row-main"><span class="row-t small">Owes ${withWho(t.with)} a reply</span><span class="row-s">${PL.msgLink(t.id)}: ${esc(plain(t.text).slice(0,110))}</span></span></div>`).join('')}
+      ${waits.map(t=>`<div class="row"><span class="row-main"><span class="row-t small">Waiting on ${withWho(t.with)}</span><span class="row-s">${PL.msgLink(t.id)}: ${esc(plain(t.text).slice(0,110))}</span></span></div>`).join('')}</div></div>`:''}
     ${x.remote?`<p class="ag-remote small mut">${PL.icon('alert',18)}This agent runs on another machine; change it there.</p>`:''}`}
 
-// What waits on you, answered here with the Inbox's own calls. Numbered options become one-tap buttons.
-// (Phase 2: this is the Inbox's item card; the two should share one component.)
-const apprOf=i=>/^c\d+$/.test(i.id)?'schedule':/^r\d+$/.test(i.id)?'rule':'agent';
-const IKIND={question:'question',task:'task for you',feedback:'feedback',schedule:'wants a schedule',rule:'proposes a rule',agent:'wants a new agent'};
-const kindOf=i=>i.kind==='approval'?apprOf(i):i.kind;
-const itemLink=i=>i.kind==='task'?PL.taskLink(i.id):i.kind==='question'?PL.msgLink(i.id):i.kind==='approval'&&apprOf(i)==='schedule'?PL.schedLink(i.id)
-  :i.kind==='approval'&&apprOf(i)==='rule'?`<a class="link" href="#setup/rules">${esc(i.id)}</a>`:esc(i.id);
-// A question's options come at the end of its text as "1. …", "2. …" (the daemon writes them so).
-const splitOptions=text=>{const lines=String(text||'').replace(/\r/g,'').trimEnd().split('\n'),opts=[];
-  for(let k=lines.length-1;k>=0;k--){const m=lines[k].match(/^\s*(\d+)\.\s+(.+?)\s*$/);if(!m)break;opts.unshift({n:+m[1],t:m[2]})}
-  if(opts.length<2||opts.some((o,j)=>o.n!==j+1))return {body:String(text||''),opts:[]};
-  return {body:lines.slice(0,lines.length-opts.length).join('\n').trim(),opts:opts.map(o=>o.t)}};
-function waitCard(i){const k=kindOf(i),{body,opts}=i.kind==='question'?splitOptions(i.text):{body:i.text,opts:[]};
-  const t=String(body).trim(),[first,...rest]=t.split('\n'),more=first.trim()===String(i.title).trim()?rest.join('\n').trim():t;
-  const b=(act,label,cls='btn-out')=>`<button type="button" class="btn ${cls} sm" data-agiact="${act}">${esc(label)}</button>`;
-  const field=ph=>`<input type="text" data-agitext placeholder="${esc(ph)}" aria-label="${esc(ph)}" autocomplete="off">`;
-  const acts=i.kind==='question'?`${opts.length?`<div class="ag-w-opts">${opts.map((o,j)=>`<button type="button" class="btn btn-out sm" data-agiopt="${esc(o)}">${j+1} · ${esc(o)}</button>`).join('')}</div>`:''}
-      <div class="ag-w-ans">${field(opts.length?'Or write an answer':'Your answer')}<span class="ag-w-btns">${b('reply','Send')}${b('dismiss','Dismiss','btn-ghost')}</span></div>`
-    :i.kind==='task'?`<div class="ag-w-ans">${field(`Note for ${i.who} (optional)`)}<span class="ag-w-btns">${b('done','Done')}${b('failed',"Couldn't do it",'btn-ghost')}</span></div>`
-    :i.kind==='approval'?`<div class="ag-w-btns">${b('approve',{schedule:'Approve',rule:'Approve rule',agent:'Approve and start it'}[k])}${b('deny','Deny','btn-ghost')}</div>`
-    :`<div class="ag-w-btns">${b('accepted','Accept')}${b('dismissed','Dismiss','btn-ghost')}</div>`;
-  return `<div class="ag-wait" data-scope data-agikind="${esc(i.kind)}" data-agiid="${esc(i.id)}"><div class="ag-w-top">${PL.badge(i.kind==='question'||i.kind==='task'?'warn':'info',IKIND[k]||k)}<span class="mut small">${itemLink(i)} · waiting ${ago(i.since)}</span></div>
-    ${i.kind==='question'?`<div class="ag-w-q md">${md(t)}</div>`:`<div class="ag-w-t">${esc(plain(i.title))}</div>${more?`<div class="ag-w-q md">${md(more)}</div>`:''}`}${acts}</div>`}
-const waitHtml=(st,x)=>{const items=itemsFor(st,x);return items.length?`<div class="label ag-wait-l">Waiting on you · ${items.length}</div>${items.map(waitCard).join('')}`:''};
+// What waits on you, answered here: the Inbox's own card (PL.inboxCard) and answers.
+const waitHtml=(st,x)=>{const items=itemsFor(st,x);return items.length?`<div class="label ag-wait-l">Waiting on you · ${items.length}</div><div class="ag-waits">${items.map(i=>PL.inboxCard(i,{who:false})).join('')}</div>`:''};
 
 // The message box: always there, Message or Task, and Send is the page's one accent button.
 const composeHtml=x=>x.remote?'':`<form class="ag-compose" data-agto="${esc(x.id)}" data-agname="${esc(x.name)}">
@@ -164,16 +142,17 @@ function tasksHtml(st,x){const mine=byLive(st.tasks.filter(t=>ownsTask(x,t))),as
     return `<div class="ag-sub">${title}${list.length?` · ${live.length} open`:''}</div>${list.length?`<div class="group">${shown.map(t=>taskLine(st,t,isMine)).join('')}${rest>0||all&&closed.length>3?`<button type="button" class="row ag-more" data-agmoreclosed="${esc(key)}">${all?'Show fewer':`Show ${plural(rest,'older closed task')}`}</button>`:''}</div>`:`<p class="small mut">${none}</p>`}`};
   const sched=st.schedules.filter(c=>(c.status==='active'||c.status==='pending')&&(c.goes_to?c.goes_to===x.name:c.folder===x.cwd));
   return `<section class="ag-card">${PL.label(`Tasks · ${x.open_tasks||0} open`)}${block('o','Owns',mine,'No tasks for this agent.',true)}${block('a','Asked for',asked,"It hasn't handed out any tasks.",false)}
-    <div class="ag-sub">Schedules</div>${sched.length?`<div class="group">${sched.map(c=>`<div class="row" data-agsched="${esc(c.id)}">${PL.badge(c.status==='pending'?'warn':'ok',c.status==='pending'?'Needs approval':'Active')}<span class="row-main"><span class="row-t">${PL.schedLink(c.id,c.when_text||c.id)}</span><span class="row-s">${esc(c.id)}${c.agent?'':' · for its folder'} · ${esc(plain(c.prompt).slice(0,120))}</span></span>
-      ${c.status==='pending'?`<span class="row-v ag-w-btns"><button type="button" class="btn btn-out sm" data-agschedok="approve">Approve</button><button type="button" class="btn btn-ghost sm" data-agschedok="deny">Deny</button></span>`:''}</div>`).join('')}</div>`:'<p class="small mut">None. Add one on the Schedules page.</p>'}</section>`}
-function messagesHtml(st,x){const mine=st.messages.filter(m=>m.from===x.id||m.to===x.id||(!x.remote&&(m.from_name===x.name||m.to_name===x.name))).slice(-5).reverse();
-  const who=(m,out)=>{const n=out?m.to_name:m.from_name;return out&&m.to==='user'||!out&&m.from==='user'?'you':n||'?'};
-  return `<section class="ag-card">${PL.label('Recent messages')}${mine.length?`<div class="group">${mine.map(m=>{const out=m.from===x.id||m.from_name===x.name&&m.from!=='user';
+    <div class="ag-sub">Schedules</div>${sched.length?`<div class="group">${sched.map(c=>`<div class="row" data-agsched="${esc(c.id)}"${c.status==='pending'?` data-ikind="approval" data-iid="${esc(c.id)}" data-iwho="${esc(x.name)}"`:''}>${PL.badge(c.status==='pending'?'warn':'ok',c.status==='pending'?'Needs approval':'Active')}<span class="row-main"><span class="row-t">${PL.schedLink(c.id,PL.cadence(c).text)}</span><span class="row-s">${esc(c.id)}${c.agent?'':' · for its folder'} · ${esc(plain(c.prompt).slice(0,120))}</span></span>
+      ${c.status==='pending'?`<span class="row-v ag-w-btns"><button type="button" class="btn btn-out sm" data-iact="approve">Approve</button><button type="button" class="btn btn-ghost sm" data-iact="deny">Deny</button></span>`:''}</div>`).join('')}</div>`:'<p class="small mut">None. Add one on the Schedules page.</p>'}</section>`}
+// Who's at the other end, as Messages names it (PL.party): you, from here or a chat; a channel; else the agent.
+function messagesHtml(st,x){const me=x.name.toLowerCase(),mine=st.messages.filter(m=>m.from===x.id||m.to===x.id||(!x.remote&&(PL.party(m,'from')===me||PL.party(m,'to')===me))).slice(-5).reverse();
+  const who=(m,out)=>{const side=out?'to':'from',p=PL.party(m,side);return p==='you'?'you':p.startsWith('discord:')?PL.chanLabel(m[side+'_name'])||'a channel':m[side+'_name']||'?'};
+  return `<section class="ag-card">${PL.label('Recent messages')}${mine.length?`<div class="group">${mine.map(m=>{const out=m.from===x.id||PL.party(m,'from')===me;
       return `<a class="row ag-msg" href="#messages/${encodeURIComponent(m.id)}"><span class="ag-dir${out?' out':''}" aria-label="${out?'sent to':'from'}">${out?'→':'←'}</span><span class="row-main"><span class="row-t small">${esc(who(m,out))}${m.task?` · task ${esc(m.task)}`:''}</span><span class="row-s ag-1l">${esc(plain(m.text).slice(0,160))}</span></span><span class="row-v small">${ago(m.ts)}</span></a>`}).join('')}
     <a class="row ag-more" href="#messages/${encodeURIComponent(mine[0].id)}">Open in Messages<span class="chev">${PL.icon('chev',18)}</span></a></div>`:'<p class="small mut">No messages to or from it lately.</p>'}</section>`}
 const wakeText=w=>w===true?'starts a turn':w===false?'waits for the next prompt':'default';
 function setupHtml(st,x){const sc=cfg.sessions?.[x.id]||{};
-  const r=(key,icon,title,sub,value)=>`<button type="button" class="row ag-setrow" data-agset="${key}"><span class="tile">${PL.icon(icon,20)}</span><span class="row-main"><span class="row-t">${title}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span><span class="row-v">${value||''}<span class="chev">${PL.icon('chev',18)}</span></span></button>`;
+  const r=(key,icon,title,sub,value)=>PL.row({button:true,cls:'ag-setrow',attrs:`data-agset="${key}"`,icon,title,sub,value:value||'',chevron:true});
   const also=(x.also||[]).length?x.also.map(esc).join(', '):'none',links=(x.links||[]).length?x.links.map(esc).join(', '):'none';
   const led=st.leads[x.space],how={set:'you picked it',only:'the only agent in it'}[x.leads]||'';
   const lead=x.leads?`leads it, ${how}`:led?`led by ${esc(led.name)}${led.live?'':' (offline)'}`:'';
@@ -192,8 +171,8 @@ function overviewHtml(st){const working=st.peers.filter(p=>p.busy).length;
   const blocked=st.peers.filter(x=>blockedOf(st,x).length),full=st.peers.filter(x=>x.context>=80);
   const arow=(x,sub,value)=>`<a class="row" href="${PL.agentHref(x)}">${PL.avatar(x.name,36)}<span class="row-main"><span class="row-t">${esc(x.name)}</span><span class="row-s">${sub}</span></span><span class="row-v">${value}<span class="chev">${PL.icon('chev',18)}</span></span></a>`;
   return `<div class="ag-ov"><h2 class="ag-name">Overview</h2><p class="small mut">Pick an agent to see it, message it or change it.</p>
-    <div class="ag-stats">${stat('Working',working)}${stat('Idle',st.peers.length-working)}${stat('Waiting on you',st.inbox.length,{cls:st.inbox.length?'warn':''})}${stat('Offline',st.offline.length)}</div>
-    ${PL.label('Waiting on you')}${waiting.length?`<div class="group">${waiting.map(({x,l})=>arow(x,esc([...new Set(l.map(i=>IKIND[kindOf(i)]))].join(', '))+` · waiting ${ago(Math.min(...l.map(i=>i.since)))}`,PL.badge('warn',String(l.length)))).join('')}</div>`:'<p class="small mut">Nothing waits on you.</p>'}
+    <div class="stats ag-stats">${stat('Working',working)}${stat('Idle',st.peers.length-working)}${stat('Waiting on you',st.inbox.length,{cls:st.inbox.length?'warn':''})}${stat('Offline',st.offline.length)}</div>
+    ${PL.label('Waiting on you')}${waiting.length?`<div class="group">${waiting.map(({x,l})=>arow(x,esc([...new Set(l.map(i=>PL.itemLabel(i).toLowerCase()))].join(', '))+` · waiting ${ago(Math.min(...l.map(i=>i.since)))}`,PL.badge('warn',String(l.length)))).join('')}</div>`:'<p class="small mut">Nothing waits on you.</p>'}
     ${blocked.length?PL.label('Blocked')+`<div class="group">${blocked.map(x=>arow(x,esc(plain(blockedOf(st,x)[0].blocked).slice(0,100)),PL.badge('bad','Blocked'))).join('')}</div>`:''}
     ${full.length?PL.label('Close to compacting')+`<div class="group">${full.map(x=>arow(x,esc(headline(x)||''),PL.meter(x.context))).join('')}</div>`:''}</div>`}
 
@@ -225,28 +204,24 @@ function agRender(st,route){
   PL.paint(parts[0],headHtml(st,x),{force});
   if(PL.paint(parts[1],waitHtml(st,x),{force}))restoreAnswers();
   if(PL.paint(parts[2],composeHtml(x),{force})){const ta=parts[2].querySelector('textarea');if(ta&&AG.drafts.get(x.id))ta.value=AG.drafts.get(x.id)}
-  PL.paint(parts[3],restHtml(st,x),{force})}
+  PL.paint(parts[3],restHtml(st,x),{force});
+  if(AG.tsheet)PL.paint(AG.tsheet.box,taskSheetBody(st.tasks.find(t=>t.id===AG.tsheet.id)))}
 // What you typed survives switching agents and coming back.
 function saveDrafts(){const f=$('#agd-compose form');if(f){const v=f.elements.text.value;v?AG.drafts.set(f.dataset.agto,v):AG.drafts.delete(f.dataset.agto)}
-  document.querySelectorAll('#agd-wait [data-agiid]').forEach(c=>{const v=c.querySelector('[data-agitext]')?.value;v?AG.answers.set(c.dataset.agiid,v):AG.answers.delete(c.dataset.agiid)})}
-function restoreAnswers(){document.querySelectorAll('#agd-wait [data-agiid]').forEach(c=>{const v=AG.answers.get(c.dataset.agiid),i=c.querySelector('[data-agitext]');if(i&&v)i.value=v})}
+  document.querySelectorAll('#agd-wait [data-iid]').forEach(c=>{const v=c.querySelector('[data-itext-in]')?.value;v?AG.answers.set(c.dataset.iid,v):AG.answers.delete(c.dataset.iid)})}
+function restoreAnswers(){document.querySelectorAll('#agd-wait [data-iid]').forEach(c=>{const v=AG.answers.get(c.dataset.iid),i=c.querySelector('[data-itext-in]');if(i&&v)i.value=v})}
 const cur=()=>PL.route.page==='agents'&&PL.route.id?PL.findAgent(PL.route.id):null;
 
-// ---- Sheets: every edit happens in one. A sheet with unsaved changes asks before a route change takes it away. ---------
-function agSheet(opts){const h=PL.sheet.open({...opts,onClose:()=>{if(AG.sheet===h)AG.sheet=null;opts.onClose?.()}});AG.sheet=h;return h}
-window.addEventListener('hashchange',async()=>{const prev=AG.lastHash;AG.lastHash=location.hash;
-  if(AG.reverting){AG.reverting=false;return}
-  const h=AG.sheet;if(!h||!PL.sheet.isOpen())return;
-  if(PL.dirty(h.el)&&!await ask('Discard your unsaved changes?',{ok:'Discard'})){AG.reverting=true;location.replace(prev||'#agents');return}
-  h.close()});
-const field=(label,input,hint)=>`<label class="field">${label}${input}${hint?`<span class="hint">${hint}</span>`:''}</label>`;
+// ---- Sheets: every edit happens in one. The shell asks before a route change takes one with unsaved changes away. ------
+function agSheet(opts){const h=PL.sheet.open({...opts,onClose:()=>{if(AG.sheet===h){AG.sheet=null;AG.tsheet=null}opts.onClose?.()}});AG.sheet=h;AG.tsheet=null;return h}
+const field=PL.field;
 async function saveCfg(x,patch){const r=await post(`/api/sessions/${encodeURIComponent(x.id)}/config`,patch);if(r.error)return r.error;if(r.sessions)cfg.sessions=r.sessions;return ''}
 function nameSheet(x){const sc=cfg.sessions?.[x.id]||{};
   agSheet({title:`Rename ${x.name}`,body:field('Name',`<input name="nickname" type="text" value="${esc(sc.nickname||'')}" placeholder="${esc(x.name)}" autocomplete="off" autofocus>`,'What other agents call it. Kept for this folder. Leave it empty for the name it picked.'),
     onSave:async f=>{const v=f.elements.nickname.value.trim();if(v===(sc.nickname||''))return;const err=await saveCfg(x,{nickname:v});if(err)return err;
       await refresh(true);const y=PL.findAgent(x.id);PL.toast(`Renamed to ${y?y.name:v||x.name}`);
       // The route names it: follow the new name, in place of the old entry.
-      if(y&&PL.route.page==='agents'&&PL.route.id!==y.id&&PL.route.id!==y.name){AG.reverting=false;AG.sheet=null;location.replace(PL.agentHref(y))}}})}
+      if(y&&PL.route.page==='agents'&&PL.route.id!==y.id&&PL.route.id!==y.name)location.replace(PL.agentHref(y))}})}
 function roleSheet(x){const sc=cfg.sessions?.[x.id]||{};
   agSheet({title:`Role of ${x.name}`,body:field('Role',`<textarea name="role" rows="5" placeholder="${x.folder_role?'From the folder: '+esc(x.folder_role):'What this agent is here for, e.g. Owns the billing API: invoices, payments, the Stripe webhook.'}" autofocus>${esc(sc.role||'')}</textarea>`,
       `For this agent only, kept across /clear and resume. The agent gets it as its brief, and other agents see it.${x.folder_role?" Leave it empty to use the role: in its folder's .peerlink.":" A role: line in a folder's .peerlink is the role of every agent there without one of its own."}`),
@@ -259,7 +234,7 @@ async function moveAgent(x,to){const where=to===''?"back to its folder's space":
   PL.toast(`Moved ${x.name} ${where}`,{undo:x.leads?null:async()=>{const r2=await post('/api/folders/space',{cwd:x.cwd,id:x.id,space:prev});if(r2.error)PL.toast(r2.error,{kind:'bad'});refresh(true)}});
   refresh(true);return true}
 function spaceSheet(x){const st=PL.state,names=spaceNames(st),here=x.space&&x.space!=='default'?x.space:'unassigned',led=st.leads[x.space];
-  const pick=(val,title,sub)=>{const on=val===here;return `<button type="button" class="row ag-pick${on?' on':''}" data-agmove="${esc(val)}"${on?' aria-current="true" disabled':''}><span class="row-main"><span class="row-t">${esc(title)}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span><span class="row-v">${on?PL.icon('check',20):''}</span></button>`};
+  const pick=(val,title,sub)=>{const on=val===here;return PL.row({button:true,cls:on?'on':'',attrs:`data-agmove="${esc(val)}"${on?' aria-current="true" disabled':''}`,title:esc(title),sub,value:on?PL.icon('check',20):''})};
   const leadBtn=x.remote||!x.space||x.space==='default'?'':x.leads?`<button type="button" class="btn btn-soft sm" data-agclearlead="${esc(x.space)}">Clear lead</button>`
     :`<button type="button" class="btn btn-out sm" data-agmakelead="${esc(x.space)}">${led?'Make lead instead of '+esc(led.name):'Make lead of '+esc(x.space)}</button>`;
   const h=agSheet({title:`Space of ${x.name}`,body:`<p class="small mut">Now in <b>${esc(spaceName(x.space))}</b>: ${esc(spaceWhy(x))}. It moves alone: other agents in its folder stay where they are.</p>
@@ -282,24 +257,27 @@ function controlsSheet(x){const sc=cfg.sessions?.[x.id]||{},w=wakeVal(sc.auto_wa
   agSheet({title:`Controls for ${x.name}`,body:`${PL.label('When a message arrives')}<span class="seg ag-seg3" role="group" aria-label="When a message arrives">${seg('default','Default')}${seg('on','Start a turn')}${seg('off','Wait')}</span>
     <p class="small mut ag-wake-hint">${{default:'Uses the default from Settings.',on:'A message starts a turn at once, even when it is idle.',off:'Messages wait for its next prompt.'}[w]}</p>
     <div class="group">
-      <label class="row ag-switch-row"><span class="row-main"><span class="row-t">Mute</span><span class="row-s">Hold every message for this agent.</span></span><input type="checkbox" class="ag-switch" data-agmute ${x.muted?'checked':''}></label>
-      <label class="row ag-switch-row"><span class="row-main"><span class="row-t">Start agents and schedules without asking me</span><span class="row-s">${all?'On for every agent in Settings.':'Its folder keeps this.'}</span></span><input type="checkbox" class="ag-switch" data-agauto ${x.auto_approve||all?'checked':''} ${all?'disabled':''}></label>
+      ${PL.switchRow({on:x.muted,title:'Mute',sub:'Hold every message for this agent.',attrs:'data-agmute'})}
+      ${PL.switchRow({on:x.auto_approve||all,title:'Start agents and schedules without asking me',sub:all?'On for every agent in Settings.':'Its folder keeps this.',disabled:all,attrs:'data-agauto'})}
     </div>
     ${PL.label('Session')}<div class="group">
       <div class="row ag-ctl"><span class="row-main"><span class="row-t">Clear its context</span><span class="row-s">Runs /clear once its current turn ends: a fresh conversation in the same folder, keeping its name, space and role. What it still owes peers is given back to it.</span></span><button type="button" class="btn btn-out sm" data-agclear>Clear</button></div>
       <div class="row ag-ctl"><span class="row-main"><span class="row-t">End this agent</span><span class="row-s">It finishes its current turn, then closes. If it's still running a minute later, it's stopped.</span></span><button type="button" class="btn btn-danger sm" data-agterm ${x.terminating?'disabled':''}>${x.terminating?'Ending…':'Terminate'}</button></div>
     </div>`})}
-function menuSheet(x){const r=(act,icon,title,cls='')=>`<button type="button" class="row ag-setrow${cls}" data-agmenuact="${act}"><span class="tile">${PL.icon(icon,20)}</span><span class="row-main"><span class="row-t">${title}</span></span></button>`;
+function menuSheet(x){const r=(act,icon,title,cls='')=>PL.row({button:true,cls,attrs:`data-agmenuact="${act}"`,icon,title});
   agSheet({title:x.name,body:`<div class="group">${r('name','agents','Rename')}${r('role','rules','Edit role')}${r('space','spaces','Move to another space')}${r('controls','controls','Controls')}${r('copy','check','Copy folder path')}</div>
-    <div class="group">${r('clear','alert','Clear context')}${r('term','x','Terminate',' ag-danger')}</div>`})}
-function taskSheet(t){const kids=PL.state.tasks.filter(k=>k.parent===t.id);
-  agSheet({title:`Task ${t.id}`,saveLabel:'Reassign',cancelLabel:'Close',body:`<div class="ag-tsheet"><div>${tBadge(t)} <b class="ag-tt">${esc(t.title)}</b></div>
+    <div class="group">${r('clear','alert','Clear context')}${r('term','x','Terminate','danger')}</div>`})}
+// A task's sheet: what it is, its record, and the shell's task actions (Cancel or Reopen, hand it to another agent).
+// It repaints as the task changes.
+function taskSheetBody(t){if(!t)return PL.empty({icon:'tasks',title:'No such task',text:'It may have been cleared.'});
+  const kids=PL.state.tasks.filter(k=>k.parent===t.id),live=isLive(t);
+  return `<div class="ag-tsheet" data-task="${esc(t.id)}"><div>${tBadge(t)} <b class="ag-tt">${esc(t.title)}</b></div>
     <p class="small mut">${PL.agentLink(t.requester?.id||t.requester?.name||'?',t.requester?.name||'?')} → ${PL.agentLink(t.owner)}${t.space?' · '+esc(t.space):''}${kids.length?` · ${kids.filter(k=>k.status==='done').length} of ${kids.length} subtasks done`:''} · ${ago(t.created)} ago</p>
     ${t.note?`<div class="md small">${md(t.note)}</div>`:''}${taskLog(t)}
-    ${field('Owner',agentSelect(t.owner_cwd||'','name="owner"','Pick an agent'),'Reassigning tells the new owner, and the old one stops.')}
-    <div class="ag-w-btns">${isLive(t)?`<button type="button" class="btn btn-danger sm" data-agtstatus="cancelled">Cancel task</button>`:`<button type="button" class="btn btn-out sm" data-agtstatus="open">Reopen</button>`}<a class="btn btn-ghost sm" href="#tasks/${encodeURIComponent(t.id)}">Open in Tasks</a></div></div>`,
-    onSave:async f=>{const v=f.elements.owner.value;if(!v||v===t.owner_cwd)return 'Pick another agent to reassign it to.';
-      const r=await post('/api/tasks/'+encodeURIComponent(t.id),{owner:v});if(r.error)return r.error;PL.toast(`Task ${t.id} reassigned`);refresh(true)}}).el.dataset.agtid=t.id}
+    ${field('Hand it to another agent',agentSelect('','data-treassign','Choose an agent…'),!live?'It reopens for the agent you pick.':t.user?'It leaves your Inbox.':esc(t.owner)+' is told to stop.')}
+    <div class="ag-w-btns">${live?`<button type="button" class="btn btn-danger sm" data-tact="cancelled">Cancel task</button>`:`<button type="button" class="btn btn-out sm" data-tact="open">Reopen</button>`}<a class="btn btn-ghost sm" href="#tasks/${encodeURIComponent(t.id)}">Open in Tasks</a></div></div>`}
+function taskSheet(t){const h=agSheet({title:`Task ${t.id}`,body:'<div data-agtlive></div>'});
+  AG.tsheet={id:t.id,box:h.body.querySelector('[data-agtlive]')};PL.paint(AG.tsheet.box,taskSheetBody(t))}
 function helpSheet(){PL.sheet.open({title:'How agents work',body:`<ul class="ag-help-list">
   <li>Each space lists its lead first, with its members indented under it. A space inside another sits under that space's lead.</li>
   <li>Work sent to a space goes to its lead: the agent you picked, or else the one that was alone in it. Pick a lead in an agent's Space; pick which space sits inside which on Setup, Spaces.</li>
@@ -335,26 +313,8 @@ document.addEventListener('submit',async e=>{const f=e.target;if(!f.matches?.('.
   f.elements.text.value='';PL.settle(f);AG.drafts.delete(f.dataset.agto);
   PL.toast(r.task?`Task ${r.task} sent to ${r.to}`:`Sent to ${r.to}`);refresh(true)});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&e.target.matches?.('.ag-compose textarea')){e.preventDefault();e.target.form.requestSubmit()}});
-// An item waiting on you: the Inbox's calls, answered here.
-on('[data-agiact],[data-agiopt]',async b=>{const card=b.closest('[data-agiid]');if(!card)return;
-  const kind=card.dataset.agikind,id=card.dataset.agiid,inp=card.querySelector('[data-agitext]');
-  const action=b.dataset.agiact||'reply',text=b.dataset.agiopt??(inp?.value||'');
-  if(action==='reply'&&!text.trim()){inp?.focus();return}
-  if(kind==='approval'&&action==='approve'&&apprOf({id})==='agent'&&!await ask('Start a new Claude Code session in that folder?',{ok:'Start'}))return;
-  card.querySelectorAll('button').forEach(x=>x.disabled=true);
-  const r=await post('/api/inbox',{kind,id,action,text});
-  if(r.error){card.querySelectorAll('button').forEach(x=>x.disabled=false);PL.toast(r.error,{kind:'bad'});return}
-  AG.answers.delete(id);if(inp){inp.value='';PL.settle(card)}
-  PL.toast({reply:'Answer sent',dismiss:'Dismissed',done:`${id} marked done`,failed:`${id} marked not done`,approve:'Approved',deny:'Denied',accepted:'Accepted',dismissed:'Dismissed'}[action]||'Done');refresh(true)});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches?.('#agd-wait [data-agitext]')){e.preventDefault();e.target.closest('[data-agiid]').querySelector('[data-agiact]')?.click()}});
-on('[data-agschedok]',async b=>{const id=b.closest('[data-agsched]').dataset.agsched;b.disabled=true;
-  const r=await post('/api/inbox',{kind:'approval',id,action:b.dataset.agschedok});if(r.error)PL.toast(r.error,{kind:'bad'});else PL.toast(b.dataset.agschedok==='approve'?`Schedule ${id} approved`:`Schedule ${id} denied`);refresh(true)});
 on('[data-agmoreclosed]',b=>{const x=cur();if(!x)return;const k=x.id+b.dataset.agmoreclosed;AG.moreClosed.has(k)?AG.moreClosed.delete(k):AG.moreClosed.add(k);PL.render()});
 on('[data-agtaskmenu]',b=>{const t=PL.state.tasks.find(t=>t.id===b.dataset.agtaskmenu);if(t)taskSheet(t)});
-on('[data-agtstatus]',async b=>{const id=b.closest('form')?.dataset.agtid,t=PL.state.tasks.find(t=>t.id===id);if(!t)return;const to=b.dataset.agtstatus,was=t.status;
-  if(to==='cancelled'&&!await ask(`Cancel task ${id}? Its owner is told to stop.`))return;
-  const r=await post('/api/tasks/'+encodeURIComponent(id),{status:to,expect:was});if(r.error){PL.toast(r.error,{kind:'bad'});return}
-  AG.sheet?.close();PL.toast(to==='cancelled'?`Task ${id} cancelled`:`Task ${id} reopened`,{undo:to==='open'?async()=>{await post('/api/tasks/'+encodeURIComponent(id),{status:was});refresh(true)}:null});refresh(true)});
 // Moving and leading, from the Space sheet.
 on('[data-agmove]',async b=>{const x=cur();if(!x)return;if(await moveAgent(x,b.dataset.agmove))AG.sheet?.close()});
 on('[data-agmakelead]',async b=>{const x=cur();if(!x)return;const r=await post(`/api/spaces/${encodeURIComponent(b.dataset.agmakelead)}/lead`,{cwd:x.cwd,id:x.id});
@@ -377,11 +337,11 @@ async function applyCfg(x,patch,undo,text){const err=await saveCfg(x,patch);if(e
 function syncControls(x){const s=AG.sheet?.el;if(!s||!s.querySelector('[data-agwake]'))return;const y=PL.findAgent(x.id)||x,w=wakeVal(cfg.sessions?.[x.id]?.auto_wake);
   s.querySelectorAll('[data-agwake]').forEach(b=>{b.classList.toggle('on',b.dataset.agwake===w);b.setAttribute('aria-pressed',b.dataset.agwake===w)});
   s.querySelector('.ag-wake-hint').textContent={default:'Uses the default from Settings.',on:'A message starts a turn at once, even when it is idle.',off:'Messages wait for its next prompt.'}[w];
-  const m=s.querySelector('[data-agmute]');if(m){m.checked=!!y.muted;PL.settle(m)}const a=s.querySelector('[data-agauto]');if(a&&!a.disabled){a.checked=!!y.auto_approve;PL.settle(a)}}
+  const sw=(sel,on)=>{const b=s.querySelector(sel+' .switch');if(b&&!b.disabled)b.setAttribute('aria-checked',String(!!on))};sw('[data-agmute]',y.muted);sw('[data-agauto]',y.auto_approve)}
 on('[data-agwake]',async b=>{const x=cur();if(!x)return;const was=cfg.sessions?.[x.id]?.auto_wake??null,v=b.dataset.agwake,val=v==='default'?null:v==='on';if(val===was)return;
   if(await applyCfg(x,{auto_wake:val},{auto_wake:was},`${x.name}: ${v==='default'?'uses the default':v==='on'?'a message starts a turn':'messages wait for its next prompt'}`))syncControls(x)});
-on('[data-agmute]',async i=>{const x=cur();if(!x)return;PL.settle(i);if(!await applyCfg(x,{muted:i.checked},{muted:!i.checked},i.checked?`${x.name} muted`:`${x.name} unmuted`)){i.checked=!i.checked;PL.settle(i)}},'change');
-on('[data-agauto]',async i=>{const x=cur();if(!x)return;PL.settle(i);if(!await applyCfg(x,{auto_approve:i.checked},{auto_approve:!i.checked},i.checked?`${x.name} starts agents without asking`:`${x.name} asks before starting agents`)){i.checked=!i.checked;PL.settle(i)}},'change');
+PL.onSwitch('[data-agmute]',async(_,on)=>{const x=cur();return !!x&&applyCfg(x,{muted:on},{muted:!on},on?`${x.name} muted`:`${x.name} unmuted`)});
+PL.onSwitch('[data-agauto]',async(_,on)=>{const x=cur();return !!x&&applyCfg(x,{auto_approve:on},{auto_approve:!on},on?`${x.name} starts agents without asking`:`${x.name} asks before starting agents`)});
 async function clearCtx(x){if(!await ask(`Clear ${x.name}'s context? It starts a fresh conversation after the turn it's in.`))return;
   const r=await post(`/api/sessions/${encodeURIComponent(x.id)}/clear`);if(r.error)PL.toast(r.error,{kind:'bad'});else{AG.sheet?.close();PL.toast(`Asked: ${x.name} clears after its current turn`)}}
 async function terminate(x){if(!await ask(`End ${x.name}? Its session closes after the turn it's in.`))return;
@@ -389,5 +349,5 @@ async function terminate(x){if(!await ask(`End ${x.name}? Its session closes aft
 on('[data-agclear]',()=>{const x=cur();if(x)clearCtx(x)});
 on('[data-agterm]',()=>{const x=cur();if(x)terminate(x)});
 // Escape goes back to the list, unless a sheet, a dialog or a field has it.
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&PL.route.page==='agents'&&PL.route.id&&!PL.sheet.isOpen()&&!document.querySelector('dialog[open]')&&!e.target.matches?.('input,textarea,select'))PL.go('#agents')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&PL.route.page==='agents'&&PL.route.id&&!PL.sheet.isOpen()&&!document.querySelector('dialog[open]')&&!e.target.matches?.('input,textarea,select'))PL.go('#agents')});
 })();
