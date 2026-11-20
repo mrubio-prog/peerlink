@@ -1,17 +1,101 @@
-/* tasks.css: the Tasks page's own rules, each under #page-tasks (or body[data-page="tasks"]). */
-#page-tasks .board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:start;margin-bottom:16px}
-#page-tasks .lane-h{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:8px 0}
-#page-tasks .col{background:color-mix(in srgb,var(--line) 35%,transparent);border-radius:var(--r16);padding:8px;min-height:80px;display:flex;flex-direction:column;gap:8px;border:1px solid transparent}
-#page-tasks .col-h{font-size:13px;font-weight:600;color:var(--fg2);display:flex;justify-content:space-between;align-items:center;padding:2px 6px;min-height:32px}
-#page-tasks .col.can{border-color:var(--acc);border-style:dashed}#page-tasks .col.over,#page-tasks .tdrop .agent.over{background:var(--acc-tint);border-color:var(--acc)}
-#page-tasks .col.shut{min-width:140px;max-width:150px}#page-tasks .col.shut .tcard{display:none}#page-tasks .col.shut.open{max-width:none;min-width:200px}#page-tasks .col.shut.open .tcard{display:block}
-#page-tasks .col-h button{min-height:32px;padding:0 6px;margin-left:-6px;font:inherit;color:inherit;background:none;box-shadow:none;border-radius:var(--r10)}
-#page-tasks .tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r12);box-shadow:var(--shadow-sm);padding:10px 12px;font-size:14px;cursor:grab}
-#page-tasks .tcard.focus,#page-tasks .task.focus{box-shadow:0 0 0 2px var(--acc)}
-#page-tasks .tcard.dragging{opacity:.4}#page-tasks .tcard .tt{font-weight:600;line-height:1.35}#page-tasks .tcard .meta{font-size:13px;color:var(--mut);margin-top:4px}#page-tasks .tcard .meta.by{display:flex;gap:8px}#page-tasks .tcard .meta.by>span:first-child{min-width:0}#page-tasks .tcard .meta.by .age{margin-left:auto;white-space:nowrap}#page-tasks .col .none{font-size:13px;color:var(--mut);padding:4px 6px}
-#page-tasks .tcard .bar{height:6px;border-radius:999px;background:var(--well);margin-top:6px;overflow:hidden}#page-tasks .tcard .bar i{display:block;height:100%;background:var(--ok-solid)}
-#page-tasks .tcard .more{display:none;margin-top:8px}#page-tasks .tcard.open .more{display:block}#page-tasks .tcard .more .tact{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}#page-tasks .tcard .more select{width:auto;max-width:100%}
-#page-tasks .tdrop{display:none;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px;font-size:13px;color:var(--mut)}#page-tasks .tdrop.on{display:flex}
-#page-tasks .tdrop .agent{border:1px dashed var(--line);border-radius:999px;padding:6px 12px;color:var(--fg)}
-@media (max-width:760px){#page-tasks .board{grid-template-columns:1fr}#page-tasks .col.shut{max-width:none}#page-tasks .col{min-height:0}}
-#page-tasks #newtask{max-width:640px;margin:0 0 16px;display:flex;flex-direction:column;gap:10px}#page-tasks #newtask select{width:100%}#page-tasks #newtask label{margin:0;display:flex;flex-direction:column;gap:6px}
+/* tasks.css: the Tasks page's own rules, each under #page-tasks, or under body[data-page="tasks"] for its sheets
+   (they live in #sheets, outside the page). */
+#page-tasks .tk-head{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+#page-tasks .tk-head h1{margin:0}
+#page-tasks .tk-gap{flex:1}
+#page-tasks .tk-help{font:700 18px var(--font);color:var(--fg2)}
+#page-tasks .tk-chips{margin:0 0 16px}
+#page-tasks .tk-chips .chip .ic{margin-right:-4px;opacity:.8}
+#page-tasks .tk-n{font-variant-numeric:tabular-nums;font-weight:600;opacity:.65;margin-left:2px}
+#page-tasks .chip[aria-pressed=true] .tk-n{opacity:.8}
+#page-tasks .tk-sep{flex:none;width:1px;height:20px;background:var(--line);margin:0 2px}
+#page-tasks .tk-more{color:var(--fg2)}
+
+/* The board: four columns, five with Cancelled. */
+#page-tasks .tk-board{display:grid;grid-template-columns:repeat(var(--tk-cols,4),minmax(0,1fr));gap:12px;align-items:start;margin:0 0 16px}
+#page-tasks .tk-lane{margin:8px 0 10px}
+#page-tasks .tk-col{background:var(--tray);border-radius:var(--r16);padding:8px;display:flex;flex-direction:column;gap:8px;min-height:96px;border:1.5px dashed transparent;transition:background-color .15s var(--ease),border-color .15s var(--ease)}
+#page-tasks .tk-col-h{display:flex;justify-content:space-between;align-items:center;margin:0;padding:6px 8px 2px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+#page-tasks .tk-col-h .tk-n{opacity:1;font-weight:500}
+#page-tasks .tk-none{font-size:13px;color:var(--faint);padding:4px 8px 8px}
+#page-tasks .tk-col.can{border-color:var(--focus-line)}
+#page-tasks .tk-col.over,#page-tasks .tk-target.over{background:var(--acc-tint);border-color:var(--acc)}
+
+#page-tasks .tk-card{background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:var(--r12);box-shadow:var(--shadow-sm);
+  padding:12px;display:flex;flex-direction:column;gap:6px;font-size:14px;cursor:pointer;transition:box-shadow .15s var(--ease),transform .15s var(--ease)}
+@media (hover:hover){#page-tasks .tk-card:hover{box-shadow:var(--shadow-md)}}
+#page-tasks .tk-card:active{transform:scale(.99)}
+#page-tasks .tk-card.sel,#page-tasks .tk-row.sel{box-shadow:0 0 0 2px var(--acc)}
+#page-tasks .tk-card.dragging{opacity:.4}
+#page-tasks .tk-ct{font-weight:600;font-size:15px;line-height:1.35}
+#page-tasks .tk-cm{font-size:13px;color:var(--mut)}
+#page-tasks .tk-cm b,#page-tasks .tk-row .row-s b{font-weight:600;color:var(--fg2)}
+#page-tasks .tk-cf{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;color:var(--mut)}
+#page-tasks .tk-cf .mono{font-size:12px}
+#page-tasks .tk-age{margin-left:auto;white-space:nowrap}
+
+/* Blocked, with the reason, on the card itself. */
+#page-tasks .tk-why{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+#page-tasks .tk-why-t{font-size:13px;line-height:1.4;color:var(--warn);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#page-tasks .tk-why-t .link{color:inherit;text-decoration:underline}
+#page-tasks .tk-prog{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
+#page-tasks .tk-bar{display:block;height:6px;border-radius:999px;background:var(--well);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+#page-tasks .tk-bar i{display:block;height:100%;border-radius:999px;background:var(--ok-solid)}
+
+/* Dragging: the agents to hand a card to, and Cancel when its column is hidden. */
+#page-tasks .tk-drop{display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px;font-size:13px;color:var(--mut)}
+#page-tasks .tk-drop.on{display:flex}
+#page-tasks .tk-target{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 14px;border:1.5px dashed var(--line);border-radius:999px;color:var(--fg);font-weight:600;font-size:14px;background:var(--surface)}
+#page-tasks .tk-target.bad{color:var(--bad);border-color:var(--bad-ring)}
+#page-tasks .tk-target.bad.over{background:var(--bad-bg);border-color:var(--bad-solid)}
+
+/* The list: one group per status, its small-caps header sticky under the top bar. */
+#page-tasks .tk-grp{margin:0 0 16px}
+#page-tasks .tk-gh{position:sticky;top:calc(var(--bar-h) + env(safe-area-inset-top,0px));z-index:5;display:flex;align-items:center;gap:8px;margin:0;padding:10px 4px 8px;
+  font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);
+  background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#page-tasks .tk-row{align-items:flex-start;padding:12px 8px 12px 16px;cursor:pointer;transition:background-color .15s var(--ease)}
+@media (hover:hover){#page-tasks .tk-row:hover{background:var(--well)}}
+#page-tasks .tk-row .row-main{gap:4px}
+#page-tasks .tk-row .row-s{white-space:normal}
+#page-tasks .tk-row .tk-prog{max-width:280px}
+#page-tasks .tk-row .chev{align-self:center}
+#page-tasks .tk-row.sel{border-radius:var(--r12)}
+
+/* Between a phone and a wide screen, two columns a row. */
+@media (max-width:899px){#page-tasks .tk-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* A phone: the list only, and the chips scroll sideways in their own row. */
+@media (max-width:639px){
+  #page-tasks .tk-layout{display:none}
+  #page-tasks .tk-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
+  #page-tasks .tk-chips::-webkit-scrollbar{display:none}
+  #page-tasks .tk-chips>*{flex:none}
+  #page-tasks .tk-row .tk-prog{max-width:none}}
+
+/* The task sheet, and the forms of the New task and More filters sheets. */
+body[data-page="tasks"] .tk-sheet,body[data-page="tasks"] .tk-info,body[data-page="tasks"] .tk-acts,body[data-page="tasks"] .tk-form{display:flex;flex-direction:column;gap:12px}
+body[data-page="tasks"] .tk-sheet .label{margin:8px 0 0}
+body[data-page="tasks"] .tk-sheet .field,body[data-page="tasks"] .tk-form .field{margin:0}
+body[data-page="tasks"] .tk-sheet select,body[data-page="tasks"] .tk-form select{width:100%}
+body[data-page="tasks"] .tk-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+body[data-page="tasks"] .tk-top .tk-age{margin-left:auto;font-size:13px;color:var(--mut)}
+body[data-page="tasks"] .tk-title{margin:0;font-size:19px;font-weight:700;line-height:1.3}
+body[data-page="tasks"] .tk-callout{background:var(--warn-bg);box-shadow:inset 0 0 0 1px var(--warn-ring);border-radius:var(--r12);padding:10px 12px;font-size:14px}
+body[data-page="tasks"] .tk-callout-h{display:flex;align-items:center;gap:8px;color:var(--warn);font-weight:600;margin-bottom:4px}
+body[data-page="tasks"] .tk-callout-h .link{color:inherit;text-decoration:underline}
+body[data-page="tasks"] .tk-fact{min-height:44px;align-items:baseline;gap:12px;font-size:14px}
+body[data-page="tasks"] .tk-k{flex:none;width:76px;color:var(--mut)}
+body[data-page="tasks"] .tk-v{flex:1;min-width:0}
+body[data-page="tasks"] .tk-sub{align-items:flex-start;font-size:14px}
+body[data-page="tasks"] .tk-sub .row-t{font-size:14px}
+body[data-page="tasks"] .tk-sub .row-s{white-space:normal}
+body[data-page="tasks"] .tk-warn{color:var(--warn)}
+body[data-page="tasks"] .tk-note{font-size:14px}
+body[data-page="tasks"] .tk-text{font-size:14px;background:var(--well);border-radius:var(--r12);padding:10px 12px;max-height:18em;overflow:auto}
+body[data-page="tasks"] .tk-record .tblocked{display:none}
+body[data-page="tasks"] .tk-record .tlog{margin:8px 0 0;font-size:14px}
+body[data-page="tasks"] .tk-record .tlog summary{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);cursor:pointer;padding:6px 0}
+body[data-page="tasks"] .tk-record .tlog .te{margin-top:10px}
+body[data-page="tasks"] .tk-btns{display:flex;gap:8px;flex-wrap:wrap}
+body[data-page="tasks"] .tk-help-t{font-size:15px}
+body[data-page="tasks"] .tk-help-t li{margin:0 0 10px}
