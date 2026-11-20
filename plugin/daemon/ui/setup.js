@@ -1,480 +1,545 @@
-// setup.js: the Setup page. One page for what you set up once and rarely visit: Spaces, Rules, Channels, Settings,
-// Controls and Feedback, each a section (#setup/<section>); #setup alone is an overview of all six.
-const SETUP=[["spaces", "Spaces"], ["rules", "Rules"], ["channels", "Channels"], ["settings", "Settings"], ["controls", "Controls"], ["feedback", "Feedback"]];
-const SETUP_SUB={"spaces": "Which agents can see and message each other", "rules": "What every agent in a space is told for good", "channels": "Discord, Telegram, Slack and outside agents", "settings": "Waking, context, approvals, limits", "controls": "Sign-in, the key and the daemon", "feedback": "Bugs and ideas agents report about peerlink"};
-PL.page('setup',{title:'Setup',sections:SETUP,
-  icons:{spaces:'spaces',rules:'rules',channels:'channels',settings:'settings',controls:'controls',feedback:'feedback'},
-  html:`<h1>Setup</h1><p class="lead" id="setuphost"></p>
-<nav class="chips setup-nav" aria-label="Setup sections"><a class="chip" href="#setup" data-sec="">Overview</a><a class="chip" href="#setup/spaces" data-sec="spaces">Spaces</a><a class="chip" href="#setup/rules" data-sec="rules">Rules</a><a class="chip" href="#setup/channels" data-sec="channels">Channels</a><a class="chip" href="#setup/settings" data-sec="settings">Settings</a><a class="chip" href="#setup/controls" data-sec="controls">Controls</a><a class="chip" href="#setup/feedback" data-sec="feedback">Feedback</a></nav>
-<div class="setup-sec" data-sec="" id="setupover"></div>
-<div class="setup-sec" data-sec="spaces" id="spaces" hidden><h1>Spaces</h1>
-<p class="lead">Which agents can see and message each other.</p>
-<details class="how"><summary>How spaces work</summary><p>An agent is in the space you put its folder in, from its Details tab on the Agents page. A folder you haven't placed takes the space in the nearest <span class="mono">.peerlink</span> file at or above it, else it's <b>unassigned</b>. Here you pick each space's lead, which gets work sent to the space, and which space it sits inside: its lead then speaks for it there.</p></details>
-<div id="spacelist"></div></div>
-<div class="setup-sec" data-sec="rules" id="rules" hidden><h1>Rules</h1>
-<p class="lead">What you've told your agents for good. A rule reaches every agent in its space and the spaces inside it, in its instructions, so a cleared context still has it. One an agent proposes waits here for your approval.</p>
-<div id="rulelist" style="display:flex;flex-direction:column;gap:8px"></div>
-<form id="ruleform" class="addline" style="margin-top:10px"><select name="space" id="rulespace" style="width:170px"></select><input name="text" type="text" class="grow" placeholder="Never merge to main on a Friday" required maxlength="600"><button type="submit">Add rule</button><span class="small err" id="rulemsg"></span></form></div>
-<div class="setup-sec" data-sec="channels" id="channels" hidden><h1>Channels</h1>
-<p class="lead">Talk to your agents from outside the terminal.</p>
-<details class="plat" id="pdiscord"><summary><span class="plogo" style="background:#5865F2"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419z"/></svg></span><span class="ptitle"><b>Discord</b><span class="psub">Channels in your server</span></span><span class="pstate" id="dstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">Each channel you map has agents: ones that <b>receive</b> get your messages there, ones that <b>send</b> can post there. Only you, the bot's owner, can talk to them.</p>
-<ol class="steps">
-<li class="step" id="dstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the bot and paste its token</div><div id="dstep1b"></div></div></li>
-<li class="step" id="dstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Invite it to your server</div><div id="dstep2b"></div></div></li>
-<li class="step" id="dstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map channels to agents</div><p class="meta">Under <b>Channel ⇄ Agent Mappings</b>, below.</p></div></li>
-</ol><div id="dextra"></div></div></details>
-<details class="plat" id="ptelegram"><summary><span class="plogo" style="background:#26A5E4"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M4.6 11.6l13.1-5.05c.6-.22 1.13.15.93 1.06l-2.23 10.5c-.17.75-.6.93-1.23.58l-3.4-2.5-1.64 1.58c-.18.18-.33.33-.68.33l.24-3.46 6.3-5.69c.27-.24-.06-.38-.43-.14l-7.78 4.9-3.35-1.05c-.73-.23-.74-.73.15-1.07z"/></svg></span><span class="ptitle"><b>Telegram</b><span class="psub">A private chat or a group</span></span><span class="pstate" id="tgstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">A private chat with your bot, or a group it's in, works like a Discord channel. Telegram bots answer anyone who finds them, so peerlink ignores everyone until you allow them.</p>
-<ol class="steps">
-<li class="step" id="tstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the bot and paste its token</div><div id="tstep1b"></div></div></li>
-<li class="step" id="tstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Message it, then allow yourself</div><div id="tstep2b"></div></div></li>
-<li class="step" id="tstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map chats to agents</div><div id="tstep3b"></div></div></li>
-</ol></div></details>
-<details class="plat" id="pslack"><summary><span class="plogo" style="background:#4A154B"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none" d="M9 4.5v15M15 4.5v15M4.5 9h15M4.5 15h15"/></svg></span><span class="ptitle"><b>Slack</b><span class="psub">A channel or a direct message</span></span><span class="pstate" id="slstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">A channel your Slack app is in, or a direct message with it, works like a Discord channel. Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them.</p>
-<ol class="steps">
-<li class="step" id="sstep1"><span class="step-n">1</span><div class="step-body"><div class="step-t">Create the app and paste its two tokens</div><div id="sstep1b"></div></div></li>
-<li class="step" id="sstep2"><span class="step-n">2</span><div class="step-body"><div class="step-t">Message it, then allow yourself</div><div id="sstep2b"></div></div></li>
-<li class="step" id="sstep3"><span class="step-n">3</span><div class="step-body"><div class="step-t">Map channels to agents</div><div id="sstep3b"></div></div></li>
-</ol></div></details>
-<details class="plat" id="pagents"><summary><span class="plogo" style="background:#0F766E"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 9l-4 3 4 3M16 9l4 3-4 3M13.5 6l-3 12"/></svg></span><span class="ptitle"><b>Agents</b><span class="psub">Other AI agents, over MCP</span></span><span class="pstate" id="agstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<p class="meta">An agent outside this machine (any MCP client) can post to the agent you pick and read its replies, and nothing else: two tools, <span class="mono">post_message</span> and <span class="mono">read_replies</span>. Each client is a chat of its own, with its own token. Only the token's hash is kept here. Your agents can answer a client there but never start a conversation with it, and your approvals and questions never go there.</p>
-<div id="agbody"></div></div></details>
-<details class="plat" id="pmap"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3"/></svg></span><span class="ptitle"><b>Channel ⇄ Agent Mappings</b><span class="psub">Which agents hear and post in each channel</span></span><span class="pstate" id="mapstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div id="dstep3b"></div></div></details>
-<details class="plat" id="popts"><summary><span class="plogo" style="background:var(--mut)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="2"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></span><span class="ptitle"><b>Options</b><span class="psub">Progress reactions, buttons and files</span></span><span class="pstate" id="optstatus"></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div id="dmore"></div></div></details></div>
-<div class="setup-sec" data-sec="settings" id="settings" hidden><h1>Settings</h1><p class="lead">Changes reach every agent within a few seconds.</p>
-<form id="cfg">
-<details class="plat" id="swake"><summary><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span><span class="ptitle"><b>Waking and delivery</b><span class="psub">When a message interrupts an agent, and when it waits</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="auto_wake_idle" id="aw"><label for="aw" style="margin:0">Wake idle agents when a message arrives</label></div>
-<div class="check"><input type="checkbox" name="inject_while_busy" id="ib"><label for="ib" style="margin:0">Deliver into a running turn</label></div>
-<div class="frow"><div><label for="wf">Wake an idle agent for</label><select name="wake_for" id="wf" style="width:100%"><option value="needed">Questions, tasks, your messages and answers (saves tokens)</option><option value="all">Every message</option></select></div>
-<div><label for="wd">Wait before waking for another agent's message (s)</label><input type="number" name="wake_delay_s" id="wd" min="0" max="120"></div></div>
-<div class="mut small">Each wake-up is a full turn that re-reads the agent's context. Waiting a few seconds lets messages that arrive together share one turn; your own messages never wait.</div>
-</div></details>
-<details class="plat" id="sctx"><summary><span class="plogo" style="background:#7a6ff0"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v4M12 17v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M3 12h4M17 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span><span class="ptitle"><b>Context and usage</b><span class="psub">Clearing context so it doesn't drain your usage limit</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="clear_between_tasks" id="cbt"><label for="cbt" style="margin:0">Agents clear their own context after each task, saving notes to memory first</label></div>
-<div class="frow"><div><label for="tnh">Ask a task's owner where it stands after this many hours without an update (0 for never)</label><input type="number" name="task_nudge_h" id="tnh" min="0" step="12"></div><div></div></div>
-<div class="frow"><div><label for="cnt">Ask an agent to save and clear once its context passes (tokens, 0 for never)</label><input type="number" name="clear_nudge_tokens" id="cnt" min="0" step="50000"></div><div></div></div>
-<div class="mut small">A large context is re-read on every turn and drains the usage limit fast. The ask arrives with the agent's next prompt, so it clears at a stopping point.</div>
-</div></details>
-<details class="plat" id="sapprove"><summary><span class="plogo" style="background:var(--ok)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></svg></span><span class="ptitle"><b>Approvals</b><span class="psub">Whether agents ask you before starting agents and schedules</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="auto_approve_all" id="aaa"><label for="aaa" style="margin:0">Let every agent start agents and schedules without asking me</label></div>
-<div class="mut small">You're still told on Discord when one does. To allow only some agents, leave this off and turn it on in an agent's Controls tab.</div>
-<div class="check" style="margin-top:10px"><input type="checkbox" name="ask_defaults" id="adf"><label for="adf" style="margin:0">Let an agent's question name a default it goes with when I don't answer in time</label></div>
-<div class="frow"><div><label for="adm">The shortest wait an agent may give me (minutes)</label><input type="number" name="ask_default_min_m" id="adm" min="0" step="5"></div><div></div></div>
-<div class="mut small">The question says the default and the wait. When the wait runs out you're told under it, and a later answer from you still wins. A standing rule an agent proposes always waits for your approval.</div>
-</div></details>
-<details class="plat" id="ssee"><summary><span class="plogo" style="background:#3d8fd6"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span><span class="ptitle"><b>What agents see</b><span class="psub">The live agent list, summaries and feedback</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="check"><input type="checkbox" name="roster_in_prompt" id="rp"><label for="rp" style="margin:0">Show each agent the live agent list when it changes</label></div>
-<div class="check"><input type="checkbox" name="auto_summary" id="as"><label for="as" style="margin:0">Keep agent summaries current automatically</label></div>
-<div class="frow"><div><label>Summary model</label><input type="text" name="summary_model"></div><div></div></div>
-<div class="check"><input type="checkbox" name="feedback" id="fbk"><label for="fbk" style="margin:0">Agents report bugs and ideas about peerlink itself, on the Feedback page</label></div>
-<div class="mut small">For people developing peerlink. Agents started after you change this get the report_issue tool, or don't.</div>
-</div></details>
-<details class="plat" id="sguide"><summary><span class="plogo" style="background:#c58a2b"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5"/></svg></span><span class="ptitle"><b>Guidance</b><span class="psub">What every agent is told about working with its peers</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<textarea name="guidance" id="guidance" aria-label="Guidance for every agent"></textarea><div class="mut small">Leave empty to use the default, shown in grey.</div>
-</div></details>
-<details class="plat" id="slimits"><summary><span class="plogo" style="background:var(--mut)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"/></svg></span><span class="ptitle"><b>Limits and timing</b><span class="psub">Polling, timeouts and how much agents can send</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<div class="frow">
-<div><label>Poll interval (ms)</label><input type="number" name="poll_interval_ms" min="500"></div>
-<div><label>Agent timeout (s)</label><input type="number" name="peer_ttl_s" min="5"></div>
-<div><label>Max reply hops</label><input type="number" name="max_hops" min="1"></div>
-<div><label>Messages per minute per agent</label><input type="number" name="rate_limit_per_min" min="1"></div>
-</div>
-</div></details>
-<details class="plat" id="sremote"><summary><span class="plogo" style="background:#4f6b7a"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 4h14v6H5zM5 14h14v6H5zM8 7h.01M8 17h.01"/></svg></span><span class="ptitle"><b>Other machines</b><span class="psub">Linking daemons on other computers</span></span><span class="chev" aria-hidden="true"></span></summary><div class="pbody">
-<label>Their daemons, one URL per line</label><textarea name="remotes" style="min-height:60px"></textarea>
-<div class="frow"><div><label>Listen host (0.0.0.0 to accept other machines; needs a restart)</label><input type="text" name="listen_host"></div>
-<div><label>Shared token</label><input type="text" name="token"></div></div>
-<label>This machine's web UI name (like peerlink.local; empty is off; needs a restart)</label><input type="text" name="local_name">
-</div></details>
-<p class="savebar"><button type="submit">Save</button> <span class="mut small" id="saved"></span></p>
-</form></div>
-<div class="setup-sec" data-sec="controls" id="controls" hidden><h1>Controls</h1><p class="lead">Sign-in, the key, and the daemon.</p>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#3d8fd6"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg></span><span class="ptitle"><b>Browsers</b><span class="psub"><span id="browsers"></span></span></span><span class="pact"><button class="ghost" data-act="logout">Sign out here</button> <button class="ghost" data-act="logout-all">Sign out everywhere</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#c58a2b"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15.5 7.5a4.5 4.5 0 1 1-6.36 6.36A4.5 4.5 0 0 1 15.5 7.5zM15.5 7.5 21 2M18 5l2 2"/></svg></span><span class="ptitle"><b>Key</b><span class="psub">Agents and sign-in links use the key in <span class="mono" id="keypath"></span>. Rotating it signs out every browser.</span></span><span class="pact"><button class="ghost" data-act="rotate">Rotate key</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:var(--acc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></span><span class="ptitle"><b>Daemon</b><span class="psub">Agents reconnect by themselves after a restart. Queued messages are kept.</span></span><span class="pact"><button class="ghost" data-act="restart">Restart daemon</button></span></div></div>
-<div class="plat static"><div class="psum"><span class="plogo" style="background:#c0563f"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span><span class="ptitle"><b>Start clean</b><span class="psub">Clear what you tick. Rules, settings, chat channels, outside clients and the key stay. Running agents stay, and the files are copied to a backup first.</span>
-<span class="cleanparts"><label><input type="checkbox" data-clean="spaces"> Spaces, leads and links</label> <label><input type="checkbox" data-clean="agents"> Offline agents</label> <label><input type="checkbox" data-clean="history"> Message history</label> <label><input type="checkbox" data-clean="tasks"> Tasks</label> <label><input type="checkbox" data-clean="schedules"> Schedules</label></span></span><span class="pact"><button class="ghost" data-act="clean">Start clean</button></span></div></div>
-<p class="mut small" id="ctlmsg"></p></div>
-<div class="setup-sec" data-sec="feedback" id="feedback" hidden><h1>Feedback</h1><p class="lead">Bugs and ideas agents report about peerlink. Accept one to hand it to the peerlink agent as a task.</p>
-<div class="msgbar"><span class="fl"><label class="small mut" for="fstatus">Show</label><select id="fstatus"><option value="">All, by status</option><option value="new">New</option><option value="accepted">Accepted</option><option value="done">Done</option><option value="dismissed">Dismissed</option></select></span>
-<span class="fl"><label class="small mut" for="ftype">Type</label><select id="ftype"><option value="">Bugs and ideas</option><option value="bug">Bugs</option><option value="idea">Ideas</option></select></span></div>
-<div class="mlist" id="fblist"></div></div>`,
-  // The gear's count: rule proposals and new feedback, both waiting on you.
-  count:()=>(allRules.filter(x=>x.status==='pending').length+allFeedback.filter(f=>f.status==='new').length)||'',
-  render:(st,route)=>renderSetup(st,route)});
-const onSec=k=>PL.route.page==='setup'&&PL.route.id===k;
-let setupSec=null,cfgShown=null;
-function renderSetup(st,route){const sec=SETUP.some(([k])=>k===route.id)?route.id:'';
-  document.querySelectorAll('#page-setup .setup-sec').forEach(d=>d.hidden=d.dataset.sec!==sec);
-  document.querySelectorAll('#page-setup .setup-nav .chip').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
-  $('#setuphost').textContent=`${st.status.host} · daemon ${st.status.version}`;
-  // Entering a section loads what isn't in the snapshot.
-  if(sec!==setupSec){setupSec=sec;if(sec==='channels'){loadDiscord();loadTelegram();loadSlack();loadAgents()}if(sec==='rules')loadRules()}
-  if(sec==='')renderOverview(st);
-  if(sec==='spaces')renderSpaces(st);
-  if(sec==='feedback')renderFeedback();
-  if(sec==='settings'&&cfgShown!==cfg&&!PL.held($('#cfg')))fillCfg();
-  if(sec==='controls'){$('#browsers').textContent=`${st.status.browsers} signed in · links work once and expire after 60 s`;$('#keypath').textContent=st.status.home+'/key'}}
-// The overview: each section with what it holds now.
-function renderOverview(st){const pending=allRules.filter(x=>x.status==='pending').length,newFb=allFeedback.filter(f=>f.status==='new').length;
-  const chans=[[dState,'Discord'],[tState,'Telegram'],[sState,'Slack']].filter(([s])=>s?.configured).map(([s,n])=>n+(s.state==='online'?'':' ('+s.state+')'));
-  const val={spaces:esc(String(PL.org(st).names.length)),rules:pending?PL.badge('warn',pending+' to approve'):esc(String(allRules.filter(x=>x.status==='active').length||'')),
-    channels:esc(chans.join(', ')||''),settings:'',controls:esc(`${st.status.browsers} signed in`),feedback:newFb?PL.badge('warn',newFb+' new'):''};
-  PL.paint($('#setupover'),PL.group(SETUP.map(([k,t])=>PL.row({href:'#setup/'+k,icon:k,title:esc(t),sub:esc(SETUP_SUB[k]),value:val[k]})).join('')))}
-// Spaces: one chart per top-level space, its lead and where it sits picked in its box.
-function renderSpaces(st){const {groups,names,inside,kids,leads,tops,isLead,joined,lbl,all}=PL.org(st);
-  // Each space's box picks its lead and where it sits. The lead is any folder with a live agent in the space.
-  const pick=(n)=>{if(n==='default')return '';const cur=leadOf[n];const folders=[...new Map((groups[n]||[]).map(x=>[x.cwd,x.name])).entries()];
-    if(cur&&!folders.some(([c])=>c===cur.cwd))folders.unshift([cur.cwd,cur.name+' (offline)']);
-    const others=names.concat(Object.keys(leadOf)).filter((s,i,a)=>s!==n&&s!=='default'&&a.indexOf(s)===i).sort();const up=(groups[n]||[])[0]?.space_parent??leadOf[n]?.parent??'';
-    return `<div class="spick"><label>Lead<select data-splead="${esc(n)}"><option value="">${cur?'no lead':'none yet'}</option>${folders.map(([c,nm])=>`<option value="${esc(c)}" ${cur&&cur.cwd===c?'selected':''}>${esc(nm)}${cur&&cur.cwd===c&&cur.how==='only'?' (was alone)':''}</option>`).join('')}</select></label>
-      <label>Inside<select data-spparent="${esc(n)}"><option value="">top level</option>${others.map(o=>`<option ${o===up?'selected':''}>${esc(o)}</option>`).join('')}</select></label></div>`};
-  const sunit=(n,seen)=>{if(seen.has(n))return '';seen.add(n);
-    const own=[...(groups[n]||[]).filter(x=>!isLead(x,n)&&!(x.leads&&!x.parent)).map(x=>esc(x.name)),...(joined[n]||[]).map(x=>esc(x.name)+` <span class="mut">(${esc(x.space||'default')})</span>`)];
-    const ledBy=inside[n]?inside[n].lead:tops(n).map(x=>x.name+(x.offline?' (offline)':'')).join(', ');
-    const ch=(kids[n]||[]).filter(c=>c!==n&&!seen.has(c)).sort();
-    return `<div class="ocol"><div class="sbox${ledBy?' led':''}"><div class="name">${esc(lbl(n))}</div>
-      ${ledBy?`<div class="small led-by">led by ${esc(ledBy)}</div>`:''}
-      <div class="small mut">${own.join(', ')||'no other agents'}</div>${pick(n)}${n!=='default'?`<button class="ghost small" data-delspace="${esc(n)}">Delete space</button>`:''}</div>
-      ${ch.length?`<div class="down"></div><div class="branch">${ch.map(c=>sunit(c,seen)).join('')}</div>`:''}</div>`};
-  // The default space is always listed: it's where every agent with no space set lands.
-  const dflt=groups.default?'':`<div class="chart"><div class="orow" style="justify-content:flex-start"><div class="ocol"><div class="sbox" style="min-height:0"><div class="name">unassigned</div><div class="small mut">agents whose folder has no space · none live</div></div></div></div></div>`;
-    PL.paint($('#spacelist'),`<div class="sgrid">${all((n,seen)=>{const u=sunit(n,seen);return u?`<div class="chart">${u}</div>`:''})}</div>`+dflt);
-}
-document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset.splead&&!t.dataset.spparent)return;
-  const r=t.dataset.spparent?await post(`/api/spaces/${encodeURIComponent(t.dataset.spparent)}/parent`,{parent:t.value})
-    :await post(`/api/spaces/${encodeURIComponent(t.dataset.splead)}/lead`,{cwd:t.value});
-  if(r.error)tell(r.error);lastView='';refresh(true)});
-// Feedback: newest first; accepting one opens a task for peerlink's maintainer.
-function renderFeedback(){
-  if(document.activeElement?.closest?.('#fblist'))return;
-  const st=$('#fstatus').value,ty=$('#ftype').value;
-  const shown=allFeedback.filter(f=>(!st||f.status===st)&&(!ty||f.type===ty)).sort((a,b)=>b.ts-a.ts);
-  const btn=(s,label)=>`<button class="ghost small" data-fact="${s}">${label}</button>`;
-  const fbRow=f=>{const task=allTasks.find(t=>t.id===f.task);let [head,...rest]=f.text.split('\n');
-    // A long first line is cut to a headline; the rest of it reads below.
-    if(head.length>120){const cut=head.lastIndexOf(' ',120)>60?head.lastIndexOf(' ',120):120;rest=[head.slice(cut).trim(),...rest];head=head.slice(0,cut)+'…'}
-    return `<div class="task" data-scope data-fb="${esc(f.id)}"><div class="mh"><span class="tchip ${esc(f.type)}">${esc(f.type)}</span><span class="tchip ${esc(f.status)}">${esc(f.status)}</span><b>${esc(head)}</b><span class="when">${esc(f.id)} · ${ago(f.ts)} ago</span></div>
-      <div class="small mut">${esc(f.from_name||'an agent')}${f.space?' · '+esc(f.space):''} · plugin ${esc(f.plugin||'?')}, daemon ${esc(f.daemon||'?')}${task?` · task ${PL.taskLink(task.id)} ${esc(TSTATE[task.status]||task.status)} with <b>${PL.agentLink(task.owner)}</b>`:''}</div>
-      ${rest.join('\n').trim()?`<div class="ftext md">${md(rest.join('\n').trim())}</div>`:''}
-      <div class="tact"><input class="small" data-fnote placeholder="Note (optional)" value="${esc(f.note||'')}">
-      ${f.status==='new'?btn('accepted','Accept')+btn('dismissed','Dismiss'):f.status==='accepted'?btn('done','Mark done')+btn('dismissed','Dismiss'):btn('new','Back to new')}</div></div>`};
-  // All statuses: a panel each, the ones that need you open. One status picked: just its list.
-  const FB={new:['New','Not looked at yet','var(--acc)',true],accepted:['Accepted','Handed to the peerlink agent as a task','var(--warn)',true],done:['Done','Fixed or built','var(--ok)',false],dismissed:['Dismissed','Not acted on','var(--mut)',false]};
-  PL.paint($('#fblist'),(st?shown.map(fbRow).join(''):Object.entries(FB).map(([k,[title,sub,bg,open]])=>{const l=shown.filter(f=>f.status===k);
-      return l.length?grp('fb:'+k,{title,sub,bg,open,state:`<span class="pill">${l.length}</span>`},l.map(fbRow).join('')):''}).join(''))
-    ||`<div class="empty">${allFeedback.length?'Nothing here.':'No feedback yet.'}</div>`)}
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-fact]');if(!b)return;const row=b.closest('[data-fb]');
-  const r=await post('/api/issues/'+encodeURIComponent(row.dataset.fb),{status:b.dataset.fact,note:row.querySelector('[data-fnote]').value});
-  if(r.error)tell(r.error);document.activeElement?.blur();refresh(true)});
-document.addEventListener('change',async e=>{const t=e.target;
-  if(t.id==='fstatus'||t.id==='ftype'){renderFeedback();return}
-  if(t.dataset.fnote!==undefined){const r=await post('/api/issues/'+encodeURIComponent(t.closest('[data-fb]').dataset.fb),{note:t.value});if(r.error)tell(r.error);t.blur();refresh(true)}});
-// -- Discord: the setup walkthrough and the channel-to-agent mapping --------
-let dState=null,dGuilds=null,dDraft=null,dBusy=false;
-function channelSelect(val,attrs,skip){const gs=dGuilds||[];
-  return `<select ${attrs}><option value="">Pick a channel…</option>${gs.map(g=>`<optgroup label="${esc(g.name)}">${g.channels.filter(c=>!skip||!skip.has(c.id)).map(c=>`<option value="${esc(c.id)}" ${c.id===val?'selected':''}>${OTHER(g)?'':'#'}${esc(c.name)}</option>`).join('')}</optgroup>`).join('')}</select>`}
-const chanName=id=>{for(const g of dGuilds||[])for(const c of g.channels)if(c.id===id)return (OTHER(g)?'':'#')+c.name;return 'channel '+id};
-async function loadDiscord(check){
-  dState=await api('/api/discord'+(check?'?check=1':''));
-  if(dGuilds===null){const r=await api('/api/discord/channels');dGuilds=r.guilds||[]}
-  if(!dDraft)dDraft={routes:JSON.parse(JSON.stringify(dState.routes||[])),dm:dState.dm||''};
-  renderDiscord()}
-// The Channels page's panels: open by default when there's something to do; your own opening or closing one sticks.
-const panelSet=new Set();
-function panels(want){for(const [id,open] of Object.entries(want)){const el=document.getElementById(id);if(!el||panelSet.has(id))continue;panelSet.add(id);
-  let saved=null;try{saved=localStorage.getItem('pl.panel.'+id)}catch(e){}
-  el.open=saved===null?open:saved==='1';el.addEventListener('toggle',()=>{try{localStorage.setItem('pl.panel.'+id,el.open?'1':'0')}catch(e){}})}}
-const platState=(configured,state,label,user,error)=>!configured?'<span class="pill">Not set up</span>'
-  :`<span class="dstate"><span class="dot ${state==='online'?'':'busy'}"></span><b>${esc(label)}</b>${user?` <span class="mut">as ${esc(user)}</span>`:''}${error?` · <span class="err">${esc(error)}</span>`:''}</span>`;
-function renderDiscord(){if(!dState)return;const d=dState,invited=(dGuilds||[]).some(g=>!OTHER(g)),mapped=(d.routes||[]).some(r=>(r.agents||[]).length);
-  const tgChats=(dGuilds||[]).some(g=>OTHER(g)&&g.channels.length);
-  const label={online:'Online',connecting:'Connecting…',error:'Error',off:'Turned off',unconfigured:'Not set up'}[d.state]||d.state;
-  PL.paint($('#dstatus'),platState(d.configured,d.state,label,d.user,d.error));
-  const nmap=(d.routes||[]).filter(r=>(r.agents||[]).length).length;PL.paint($('#mapstatus'),nmap?`<span class="pill">${nmap} mapped</span>`:'');
-  panels({pdiscord:!d.configured||d.state==='error',pmap:true,popts:false});
-  $('#dstep1').classList.toggle('done',d.configured);$('#dstep2').classList.toggle('done',d.configured&&invited);$('#dstep3').classList.toggle('done',(d.routes||[]).some(r=>platOf(r.channel_id)==='discord'&&(r.agents||[]).length));
-  $('#tstep3').classList.toggle('done',(d.routes||[]).some(r=>r.channel_id.startsWith('tg:')&&(r.agents||[]).length));
-  $('#sstep3').classList.toggle('done',(d.routes||[]).some(r=>r.channel_id.startsWith('slack:')&&(r.agents||[]).length));
-  PL.paint($('#dstep1b'),d.configured?`<p class="meta">Token <span class="mono">${esc(d.token_hint)}</span> saved. <button class="ghost small" data-dact="forget">Disconnect</button></p>`
-   :`<p class="meta">On the <a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer">Developer Portal ↗</a>, click <b>New Application</b> and give it a name. Open <b>Bot</b>, click <b>Reset Token</b>, and copy it. Optional: on the same page, turn on <b>Message Content Intent</b> so you can talk to it without @mentioning it every time.</p>
-     <form class="addline" id="dtoken"><input type="password" class="mono grow" autocomplete="off" spellcheck="false" placeholder="Bot token" name="token"><button type="submit" ${dBusy?'disabled':''}>${dBusy?'Checking…':'Connect'}</button></form><p class="small err" id="dtokerr"></p>`);
-  PL.paint($('#dstep2b'),!d.configured?'':`<p class="meta">${invited?`In ${dGuilds.filter(g=>!OTHER(g)).map(g=>esc(g.name)).join(', ')}. `:`Pick your server on Discord's page, then come back here. This step completes on its own. `}
-    ${d.invite_url?`<a href="${esc(d.invite_url)}" target="_blank" rel="noreferrer">${invited?'Invite to another server ↗':'<button>Invite the bot ↗</button>'}</a>`:''}</p>`);
-  // What only Discord has stays in its own panel: whether it reads every message, who and which bots can talk, on or off.
-  const reading=d.reads_messages?`<p class="meta">Everything you write in a mapped channel goes to every agent that receives there. No @mention needed.</p>`
-    :d.message_content_switch?`<p class="meta">The Message Content switch is on in Discord, but the bot connected before it was. <button class="ghost small" data-dact="reconnect">Reconnect now</button></p>`
-    :`<p class="meta">${d.message_content_switch===false?'<b>Discord says the Message Content switch is off.</b> ':''}@mention the bot each time, or DM it. To talk without @mentioning, turn on <b>Message Content Intent</b> on the <a href="${d.app_id?`https://discord.com/developers/applications/${esc(d.app_id)}/bot`:'https://discord.com/developers/applications'}" target="_blank" rel="noreferrer">Bot page ↗</a> (under Privileged Gateway Intents) and save. <button class="ghost small" data-dact="check">I turned it on</button></p>`;
-  const extra=$('#dextra');if(extra&&!extra.contains(document.activeElement))PL.paint(extra,!d.configured?'':`<h2>Messages</h2>${reading}
-    <h2>People who can talk to agents</h2>
-    <p class="meta">Only you can, as the bot's owner (or its team's members). Add other people's user IDs here, separated by commas: they can then message agents and answer buttons as you do. To find one, turn on Developer Mode in Discord, right-click the person and choose Copy User ID.</p>
-    <div class="addline"><input id="dusers" class="mono" placeholder="e.g. 1562000000000000000" value="${esc((d.allowed_users||[]).join(', '))}" data-dusers style="flex:1;min-width:0"></div>
-    <h2>Bots that can post to agents</h2>
-    <p class="meta">Other bots are ignored unless listed here. Add their user IDs, separated by commas. To find one, turn on Developer Mode in Discord, right-click the bot and choose Copy User ID. List only bots you control.</p>
-    <div class="addline"><input id="dbots" class="mono" placeholder="e.g. 1562000000000000000" value="${esc((d.trusted_bots||[]).join(', '))}" data-dbots style="flex:1;min-width:0"></div>
-    <h2>Bot</h2>
-    <label class="check"><input type="checkbox" data-dact="enabled" ${d.enabled?'checked':''}> Bot running</label>`);
-  if(!(d.configured&&invited)&&!tgChats){PL.paint($('#dstep3b'),'<p class="meta">Set up Discord, Telegram, Slack or Agents above; the channels and chats its bot can see are mapped to agents here.</p>');PL.paint($('#dmore'),'');return}
-  // A mapped channel is a card: its name, then its agents as chips you toggle. Every change saves at once.
-  const online=id=>({telegram:tState,slack:sState,agents:aState,discord:d}[platOf(id)]||{}).state==='online';
-  const taken=new Set(dDraft.routes.map(r=>r.channel_id).filter(Boolean));
-  const rows=dDraft.routes.map((r,i)=>`<div class="mrow">
-    <div class="mhead">${r.channel_id?`${platLogo(r.channel_id)}<span class="mname">${esc(chanName(r.channel_id))}</span>
-      <button class="ghost small" data-dtest="${esc(r.channel_id)}" ${online(r.channel_id)?'':'disabled'}>Send a test</button>`
-      :channelSelect('',`data-droute="${i}" data-dfield="channel_id"`,taken)}
-      <button class="linkbtn" data-dremove="${i}" title="Stop using this channel">Remove</button></div>
-    <div class="magents">${(r.agents||[]).map((a,j)=>`<span class="magent"><span class="mn" title="${esc(entryLabel(a))}">${esc(entryLabel(a))}</span>
-        <button class="tog" aria-pressed="${!!a.receives}" data-dflag="${i}:${j}:receives" title="Your messages here go to it">Receives</button>
-        <button class="tog" aria-pressed="${!!a.sends}" data-dflag="${i}:${j}:sends" title="It can post here">Sends</button>
-        <button class="x" title="Take it off this channel" aria-label="Remove ${esc(entryLabel(a))}" data-dunagent="${i}:${j}">✕</button></span>`).join('')}
-      ${r.channel_id?entrySelect(`data-daddagent="${i}"`,(r.agents||[]).length?'+ agent':'+ Add an agent'):''}</div>${delegRow(r.channel_id)}</div>`).join('');
-  const dg=aState&&aState.delegation,hasAg=dDraft.routes.some(r=>String(r.channel_id).startsWith('agents:'));
-  PL.paint($('#dstep3b'),`<p class="meta">Your messages go to every agent that <b>receives</b>; to reach just one, reply to its post or start with its name and a colon: <span class="mono">storefront: how's the build?</span> An agent that <b>sends</b> posts its messages and updates there. Changes save as you make them.</p>
-    ${dg&&hasAg?`<div class="dgswitch"><label class="check"><input type="checkbox" data-dgswitch ${dg.switch?'checked':''}> <span><b>Outside agents may pass on your approvals.</b> Only the clients and kinds of work you tick on their mapping below, on ${dg.envs.join(' or ')} only, at most ${dg.per_hour} an hour and ${dg.per_day} a day, ${String(dg.hours[0]).padStart(2,'0')}:00–${dg.hours[1]}:00. Each one is posted to you with <b>Undo + revoke</b>. Off, none counts. Prod, money, secrets and deletions always need you.</span></label>${(dg.never_delegate||[]).length?`<div class="small mut" style="margin:6px 0 0 24px" data-dgnever>Never: ${dg.never_delegate.map(n=>`<span class="mono">${esc(n)}</span>`).join(', ')} <span title="Set from ${esc(dg.seed_file||'')} on this machine, not here">(read-only)</span></div>`:''}</div>`:''}
-    <div class="mlist2">${rows||'<div class="mut small">No channels mapped yet.</div>'}</div>
-    <div class="addline" style="margin-top:10px"><button class="ghost" data-dact="addroute">+ Map a channel</button><button class="ghost" data-dact="refresh" title="Look for new servers and channels">↻ Refresh channels</button><span class="small" id="dsaved"></span></div>
-    ${d.configured?`<div class="addline" style="margin-top:12px"><label class="small mut">Direct messages to the Discord bot go to</label>${agentSelect(dDraft.dm,'data-ddm','Nobody (ignored)')}</div>`:''}
-    <p class="small mut" style="margin-top:10px">Start a post with <span class="mono">Task:</span> to hand it over as a task, or <span class="mono">Announcement:</span> to tell the receiving agent's whole space.</p>`);
-  PL.paint($('#dmore'),`<h2>Talking to your agents</h2>
-    <p class="meta">A reaction on your message shows its progress:</p>
-    <div class="legend"><span>👀</span><span>delivered to the agent</span><span>🤔</span><span>thinking</span><span>🛠️</span><span>using tools</span><span>❓</span><span>asked you something</span><span>✅</span><span>answered</span></div>
-    <p class="meta" style="margin-top:12px">Agents can message you first, labelled with their name. If an agent isn't running, your message waits up to an hour for it.</p>
-    <h2>What agents can send</h2>
-    <label class="check"><input type="checkbox" data-dopt="buttons" ${d.buttons?'checked':''}> <span><b>Buttons</b> for choices: tap one and it goes back to the agent as your answer. Off, the choices are a numbered list you reply to.</span></label>
-    <label class="check"><input type="checkbox" data-dopt="files_out" ${d.files_out?'checked':''}> <span><b>Files from agents:</b> an agent can attach files from this machine to its messages.</span></label>
-    <label class="check"><input type="checkbox" data-dopt="files_in" ${d.files_in?'checked':''}> <span><b>Files to agents:</b> what you attach is saved here, under <span class="mono">~/.peerlink/files</span>, and the agent gets the paths.</span></label>
-    <div class="addline" style="margin-top:8px"><label class="small mut" for="dmaxmb">Largest file, either way</label><input id="dmaxmb" type="number" min="1" max="500" step="1" value="${esc(d.max_file_mb)}" style="width:90px" data-dopt="max_file_mb"> <span class="small mut">MB (Discord allows 10 MB without Nitro; Telegram bots get files up to 20 MB)</span></div>`)}
-document.addEventListener('submit',async e=>{if(e.target.id!=='dtoken')return;e.preventDefault();const t=e.target.token.value.trim();if(!t)return;
-  dBusy=true;renderDiscord();const r=await api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({token:t})});dBusy=false;
-  if(r.error){renderDiscord();$('#dtokerr').textContent=r.error;return}dGuilds=null;dDraft=null;await loadDiscord()});
-// The mapping saves as you change it: the channels that have an agent, and where DMs go. One still being set up
-// (no channel or no agent yet) stays on the page until it's complete.
-// Delegated approvals: on an Agents client's mapping, whether it may pass on your OK and for which kinds of work.
-// Saved at once, from your browser only; the daemon checks every approval against its token and this mapping.
-const dgPick={};
-function delegRow(cid){const dg=aState&&aState.delegation;if(!dg||!String(cid).startsWith('agents:'))return'';
-  const n=String(cid).slice(7),c=(dg.clients||{})[n];if(!c)return'';
-  if(c.never)return `<div class="mdeleg small mut">Can't approve for you: ${esc(c.never)}.</div>`;
-  const pick=c.on?c.scopes:(dgPick[n]||[]),days=c.on?Math.max(0,Math.ceil((c.expires*1000-Date.now())/86400000)):0;
-  return `<div class="mdeleg"><label class="check"><input type="checkbox" data-dgon="${esc(n)}" ${c.on?'checked':''}> <span><b>Can approve for you</b>, from its own token only${c.on?` · ${days} day${days===1?'':'s'} left (ticking a kind renews it for ${dg.grant_days})`:''}${dg.switch?'':' · <span class="mut">the switch above is off</span>'}${c.linked.length?` <span class="pill warn">linked with ${esc(c.linked.join(', '))}</span>`:''}${c.problem?` <span class="pill warn">${esc(c.problem)}</span>`:''}${c.recent?` <span class="mut">${c.recent} in the last day</span>`:''}</span></label>
-    <div class="scopes">${dg.scopes.map(sc=>`<label class="check small"><input type="checkbox" data-dgscope="${esc(n)}" value="${esc(sc)}" ${pick.includes(sc)?'checked':''}> <span class="mono">${esc(sc)}</span></label>`).join('')}</div></div>`}
-async function dgPut(path,body){const r=await api('/api/agentchannel/delegation'+path,{method:'PUT',headers:J,body:JSON.stringify(body)});
-  if(r.error)tell(r.error);await loadAgents();renderDiscord()}
-document.addEventListener('change',e=>{const t=e.target;
-  if(t.dataset.dgswitch!==undefined)dgPut('',{switch:t.checked});
-  const scopesOf=n=>[...document.querySelectorAll(`[data-dgscope="${CSS.escape(n)}"]`)].filter(x=>x.checked).map(x=>x.value);
-  if(t.dataset.dgon){const n=t.dataset.dgon,sc=scopesOf(n);
-    if(t.checked&&!sc.length){t.checked=false;tell('Tick the kinds of work it may approve first.');return}
-    dgPut('/'+encodeURIComponent(n),{on:t.checked,scopes:sc})}
-  if(t.dataset.dgscope){const n=t.dataset.dgscope,c=((aState.delegation||{}).clients||{})[n]||{},sc=scopesOf(n);dgPick[n]=sc;
-    if(c.on)dgPut('/'+encodeURIComponent(n),{on:sc.length>0,scopes:sc})}});
-async function saveMap(){const routes=dDraft.routes.filter(r=>r.channel_id&&(r.agents||[]).length);
-  const r=await api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({routes,dm:dDraft.dm})});
-  if(!r.error&&dState){dState.routes=JSON.parse(JSON.stringify(routes));dState.dm=dDraft.dm}
-  renderDiscord();const s=$('#dsaved');if(s){s.className='small '+(r.error?'err':'ok');s.textContent=r.error||'Saved'}}
-document.addEventListener('change',e=>{const t=e.target;if(!dDraft)return;
-  if(t.dataset.droute!==undefined){dDraft.routes[+t.dataset.droute][t.dataset.dfield]=t.value;renderDiscord()}
-  if(t.dataset.daddagent!==undefined&&t.value){const r=dDraft.routes[+t.dataset.daddagent];r.agents=r.agents||[];
-    // The first agent added receives and sends; after that, one that only posts here is the likelier want.
-    const [cwd,name]=t.value.split('\t');
-    if(!r.agents.some(a=>a.cwd===cwd&&(a.name||'').toLowerCase()===name.toLowerCase()))r.agents.push({cwd,name,receives:!r.agents.some(a=>a.receives),sends:true});saveMap()}
-  if(t.dataset.ddm!==undefined){dDraft.dm=t.value;saveMap()}
-  if(t.dataset.dopt){const v=t.type==='checkbox'?t.checked:Number(t.value);api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({[t.dataset.dopt]:v})}).then(()=>loadDiscord())}
-  if(t.dataset.dbots!==undefined)api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({trusted_bots:t.value})}).then(()=>loadDiscord());
-  if(t.dataset.dusers!==undefined)api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({allowed_users:t.value})}).then(()=>loadDiscord());
-  if(t.dataset.dact==='enabled')api('/api/discord',{method:'PUT',headers:J,body:JSON.stringify({enabled:t.checked})}).then(()=>loadDiscord())});
-document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t||!dDraft&&!t.dataset.dact)return;
-  if(t.dataset.dremove!==undefined){const r=dDraft.routes[+t.dataset.dremove];
-    if(r.channel_id&&(r.agents||[]).length&&!await ask(`Stop using ${chanName(r.channel_id)}? Its agents no longer hear or post there.`))return;
-    dDraft.routes.splice(+t.dataset.dremove,1);saveMap()}
-  if(t.dataset.dunagent){const [i,j]=t.dataset.dunagent.split(':').map(Number);dDraft.routes[i].agents.splice(j,1);saveMap()}
-  if(t.dataset.dflag){const [i,j,f]=t.dataset.dflag.split(':');const a=dDraft.routes[+i].agents[+j];a[f]=!a[f];saveMap()}
-  if(t.dataset.dtest){const r=await post('/api/discord/test',{channel_id:t.dataset.dtest});t.textContent=r.error?'Failed':'Sent ✓';if(r.error)tell(r.error)}
-  const a=t.dataset.dact;if(!a)return;
-  if(a==='addroute'){dDraft.routes.push({channel_id:'',agents:[]});renderDiscord()}
-  if(a==='refresh'){const r=await api('/api/discord/channels?fresh=1');dGuilds=r.guilds||[];renderDiscord()}
-  if(a==='forget'&&await ask('Disconnect the Discord bot? The channel mapping is kept.')){await api('/api/discord',{method:'DELETE'});dGuilds=null;await loadDiscord()}
-  if(a==='reconnect'){await post('/api/discord/reconnect');setTimeout(()=>loadDiscord(),2000)}
-  if(a==='check')await loadDiscord(true);
-});
-// -- Telegram: the bot's token, who may talk to it, and the chats it has heard from ------------------
-let tState=null,tBusy=false;
-async function loadTelegram(){const before=JSON.stringify(Object.keys(tState?.chats||{}));tState=await api('/api/telegram');renderTelegram();
-  // A chat the bot heard from for the first time joins the mapping's picker.
-  if(before!==JSON.stringify(Object.keys(tState.chats||{}))&&dState){dGuilds=null;loadDiscord()}}
-let tShown=null;
-function renderTelegram(){const t=tState;if(!t)return;
-  const label={online:'Online',connecting:'Connecting…',error:'Error',off:'Turned off',unconfigured:'Not set up'}[t.state]||t.state;
-  PL.paint($('#tgstatus'),platState(t.configured,t.state,label,t.user&&'@'+t.user,t.error)+((t.strangers||[]).length?` <span class="pill warn">${t.strangers.length} waiting</span>`:''));
-  // The mapping's test buttons follow the bot's state; redrawn only when it changes, not on every poll mid-edit.
-  if(dState&&t.state!==tShown){tShown=t.state;renderDiscord()}
-  panels({ptelegram:!t.configured||t.state==='error'||(t.strangers||[]).length>0});
-  $('#tstep1').classList.toggle('done',t.configured);$('#tstep2').classList.toggle('done',t.configured&&(t.allowed_users||[]).length>0);
-  PL.paint($('#tstep1b'),t.configured?`<p class="meta">Token <span class="mono">${esc(t.token_hint)}</span> saved. <label class="small"><input type="checkbox" data-tact="enabled" ${t.enabled?'checked':''}> Bot running</label> <button class="ghost small" data-tact="forget">Disconnect</button></p>`
-   :`<p class="meta">In Telegram, message <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather ↗</a>, send <span class="mono">/newbot</span>, and pick a name and a username. It answers with a token: paste it here.</p>
-     <form class="addline" id="ttoken"><input type="password" class="mono grow" autocomplete="off" spellcheck="false" placeholder="123456789:AAE…" name="token"><button type="submit" ${tBusy?'disabled':''}>${tBusy?'Checking…':'Connect'}</button></form><p class="small err" id="ttokerr"></p>`);
-  const strangers=(t.strangers||[]).map(x=>`<div class="addline small"><b>${esc(x.name)}</b>${x.username?` @${esc(x.username)}`:''} <span class="mono mut">${esc(x.id)}</span> <span class="mut">in ${esc(x.chat_name||x.chat)}, ${ago(x.ts)} ago</span>
-      <button class="small" data-tallow="${esc(x.id)}">Allow</button><button class="ghost small" data-tdismiss="${esc(x.id)}">Dismiss</button></div>`).join('');
-  PL.paint($('#tstep2b'),!t.configured?'':`<p class="meta">Open <a href="https://t.me/${esc(t.user)}" target="_blank" rel="noreferrer">@${esc(t.user)} ↗</a> and send it any message. You show up here; allow yourself, and the bot answers you from then on.</p>
-    ${strangers?`<p class="meta"><b>Wrote to the bot, not allowed yet:</b></p>${strangers}`:'<p class="small mut">Nobody waiting. This updates by itself.</p>'}
-    <p class="meta" style="margin-top:8px">Allowed (Telegram user ids, separated by commas): they can message agents and answer buttons as you do.</p>
-    <div class="addline"><input class="mono" placeholder="e.g. 123456789" value="${esc((t.allowed_users||[]).join(', '))}" data-tusers style="flex:1;min-width:0"></div>`);
-  PL.paint($('#tstep3b'),!t.configured?'':`<p class="meta">Every chat the bot has heard from, your private chat with it or a group you added it to, is listed under <b>Channel ⇄ Agent Mappings</b>, below.
-    ${t.reads_messages?'In groups it reads every message.':'In groups, Telegram shows the bot only commands, @mentions and replies to it. To talk without @mentioning, send <span class="mono">/setprivacy</span> to @BotFather, choose Disable, then remove the bot from the group and add it again.'}
-    Commands work too: <span class="mono">/status</span>, <span class="mono">/inbox</span>, <span class="mono">/peerlink run loop 5m check the deploy</span>.</p>`)}
-document.addEventListener('submit',async e=>{if(e.target.id!=='ttoken')return;e.preventDefault();const tok=e.target.token.value.trim();if(!tok)return;
-  tBusy=true;renderTelegram();const r=await api('/api/telegram',{method:'PUT',headers:J,body:JSON.stringify({token:tok})});tBusy=false;
-  if(r.error){renderTelegram();$('#ttokerr').textContent=r.error;return}await loadTelegram()});
-document.addEventListener('change',e=>{const t=e.target;
-  if(t.dataset.tusers!==undefined)api('/api/telegram',{method:'PUT',headers:J,body:JSON.stringify({allowed_users:t.value})}).then(loadTelegram);
-  if(t.dataset.tact==='enabled')api('/api/telegram',{method:'PUT',headers:J,body:JSON.stringify({enabled:t.checked})}).then(loadTelegram)});
-document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;
-  if(t.dataset.tallow){await api('/api/telegram',{method:'PUT',headers:J,body:JSON.stringify({allow:t.dataset.tallow})});loadTelegram()}
-  if(t.dataset.tdismiss){await api('/api/telegram',{method:'PUT',headers:J,body:JSON.stringify({dismiss:t.dataset.tdismiss})});loadTelegram()}
-  if(t.dataset.tact==='forget'&&await ask('Disconnect the Telegram bot? The chat mapping and allowed people are kept.')){await api('/api/telegram',{method:'DELETE'});loadTelegram()}});
-// -- Slack: the app's two tokens, who may talk to it, and the conversations it is in --------------------
-let sState=null,sBusy=false,sShown=null;
-async function loadSlack(){const before=JSON.stringify(sState?.chats||{});sState=await api('/api/slack');renderSlack();
-  if(before!==JSON.stringify(sState.chats||{})&&dState){dGuilds=null;loadDiscord()}}
-function renderSlack(){const t=sState;if(!t)return;
-  const label={online:'Online',connecting:'Connecting…',error:'Error',off:'Turned off',unconfigured:'Not set up'}[t.state]||t.state;
-  PL.paint($('#slstatus'),platState(t.configured,t.state,label,t.user&&`${t.user}${t.team?' in '+t.team:''}`,t.error)+((t.strangers||[]).length?` <span class="pill warn">${t.strangers.length} waiting</span>`:''));
-  if(dState&&t.state!==sShown){sShown=t.state;renderDiscord()}
-  panels({pslack:t.configured&&(t.state==='error'||(t.strangers||[]).length>0)});
-  $('#sstep1').classList.toggle('done',t.configured);$('#sstep2').classList.toggle('done',t.configured&&(t.allowed_users||[]).length>0);
-  // The token form is left alone while it's being filled in: the page polls.
-  if(t.configured||!$('#stoken')||sBusy!==($('#stoken').dataset.busy==='1'))PL.paint($('#sstep1b'),t.configured?`<p class="meta">Tokens <span class="mono">${esc(t.token_hint)}</span> and <span class="mono">${esc(t.app_token_hint)}</span> saved. <label class="small"><input type="checkbox" data-sact="enabled" ${t.enabled?'checked':''}> App running</label> <button class="ghost small" data-sact="forget">Disconnect</button></p>`
-   :`<p class="meta"><a href="${esc(t.manifest_url)}" target="_blank" rel="noreferrer"><button type="button">Create the app on Slack ↗</button></a> The link fills in everything the app needs; pick your workspace and click <b>Create</b>.</p>
-     <p class="meta"><b>App-level token:</b> on the app's <b>Basic Information</b> page, under <b>App-Level Tokens</b>, click <b>Generate Token and Scopes</b>, add the scope <span class="mono">connections:write</span>, and copy the token (it starts <span class="mono">xapp-</span>).</p>
-     <p class="meta"><b>Bot token:</b> on <b>Install App</b>, click <b>Install to Workspace</b>, allow it, and copy the <b>Bot User OAuth Token</b> (it starts <span class="mono">xoxb-</span>).</p>
-     <form class="addline" id="stoken" data-busy="${sBusy?1:0}"><input type="password" class="mono grow" autocomplete="off" spellcheck="false" placeholder="App-level token, xapp-…" name="app_token"><input type="password" class="mono grow" autocomplete="off" spellcheck="false" placeholder="Bot token, xoxb-…" name="token"><button type="submit" ${sBusy?'disabled':''}>${sBusy?'Checking…':'Connect'}</button></form><p class="small err" id="stokerr"></p>`);
-  const strangers=(t.strangers||[]).map(x=>`<div class="addline small"><b>${esc(x.name)}</b> <span class="mono mut">${esc(x.id)}</span> <span class="mut">in ${esc(x.chat_name||x.chat)}, ${ago(x.ts)} ago</span>
-      <button class="small" data-sallow="${esc(x.id)}">Allow</button><button class="ghost small" data-sdismiss="${esc(x.id)}">Dismiss</button></div>`).join('');
-  if(document.activeElement?.dataset?.susers===undefined)PL.paint($('#sstep2b'),!t.configured?'':`<p class="meta">In Slack, find <b>${esc(t.user||'peerlink')}</b> under <b>Apps</b> and send it any message. You show up here; allow yourself, and it answers you from then on.</p>
-    ${strangers?`<p class="meta"><b>Wrote to the app, not allowed yet:</b></p>${strangers}`:'<p class="small mut">Nobody waiting. This updates by itself.</p>'}
-    <p class="meta" style="margin-top:8px">Allowed (Slack member ids, separated by commas): they can message agents and answer buttons as you do.</p>
-    <div class="addline"><input class="mono" placeholder="e.g. U012AB3CD" value="${esc((t.allowed_users||[]).join(', '))}" data-susers style="flex:1;min-width:0"></div>`);
-  PL.paint($('#sstep3b'),!t.configured?'':`<p class="meta">Your direct message with the app, and every channel it's in, is listed under <b>Channel ⇄ Agent Mappings</b>, below. To add it to a channel, type <span class="mono">/invite @${esc(t.user||'peerlink')}</span> there; it reads every message in that channel.
-    Commands work too: <span class="mono">/peerlink status</span>, <span class="mono">/peerlink inbox</span>, <span class="mono">/peerlink run loop 5m check the deploy</span>.</p>`)}
-document.addEventListener('submit',async e=>{if(e.target.id!=='stoken')return;e.preventDefault();const tok=e.target.token.value.trim(),app=e.target.app_token.value.trim();if(!tok||!app){$('#stokerr').textContent='Paste both tokens.';return}
-  sBusy=true;const r=await api('/api/slack',{method:'PUT',headers:J,body:JSON.stringify({token:tok,app_token:app})});sBusy=false;
-  if(r.error){$('#stokerr').textContent=r.error;return}await loadSlack()});
-document.addEventListener('change',e=>{const t=e.target;
-  if(t.dataset.susers!==undefined)api('/api/slack',{method:'PUT',headers:J,body:JSON.stringify({allowed_users:t.value})}).then(()=>{t.blur();loadSlack()});
-  if(t.dataset.sact==='enabled')api('/api/slack',{method:'PUT',headers:J,body:JSON.stringify({enabled:t.checked})}).then(loadSlack)});
-document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;
-  if(t.dataset.sallow){await api('/api/slack',{method:'PUT',headers:J,body:JSON.stringify({allow:t.dataset.sallow})});loadSlack()}
-  if(t.dataset.sdismiss){await api('/api/slack',{method:'PUT',headers:J,body:JSON.stringify({dismiss:t.dataset.sdismiss})});loadSlack()}
-  if(t.dataset.sact==='forget'&&await ask('Disconnect the Slack app? The channel mapping and allowed people are kept.')){await api('/api/slack',{method:'DELETE'});loadSlack()}});
-// Someone messaging the bot, or a chat it joins, shows up without a reload.
-setInterval(()=>{if(onSec('channels')&&tState?.configured&&!document.hidden)loadTelegram()},4000);
-setInterval(()=>{if(onSec('channels')&&!document.hidden&&(sState?.configured||!sState))loadSlack()},4000);
-// -- Agents: outside agents over MCP. Clients are added with the CLI (the token never passes through here); where they
-// land, the switch and the port are set here, and a client can be switched off or revoked here.
-let aState=null,aShown=null;
-async function loadAgents(){const before=JSON.stringify((aState?.clients||[]).map(c=>c.name));aState=await api('/api/agentchannel');renderAgents();
-  if(before!==JSON.stringify((aState.clients||[]).map(c=>c.name))&&dState){dGuilds=null;loadDiscord()}}
-function renderAgents(){const a=aState;if(!a||a.error===undefined&&!a.state)return;
-  const label={online:'Online',off:'Turned off',error:'Error',unconfigured:'No clients'}[a.state]||a.state;
-  PL.paint($('#agstatus'),platState(a.clients.length>0||a.registration,a.state,label,a.state==='online'&&`127.0.0.1:${a.port}`,a.error)+((a.pending||[]).length?` <span class="pill warn">${a.pending.length} waiting</span>`:''));
-  panels({pagents:(a.pending||[]).length>0});
-  if(dState&&a.state!==aShown){aShown=a.state;renderDiscord()}
-  if(document.activeElement&&$('#agbody').contains(document.activeElement))return;
-  const rows=a.clients.map(c=>`<div class="addline small"><b class="mono">${esc(c.name)}</b>
-      <label class="small"><input type="checkbox" data-agon="${esc(c.name)}" ${c.enabled?'checked':''}> On</label>
-      <label class="small">Posts per minute <input type="number" min="1" max="120" value="${c.rate_per_min}" data-agrate="${esc(c.name)}" style="width:64px"></label>
-      <label class="small" title="Clients it messages straight, with post_to_client, and that message it. Nobody here reads those.">Linked with <input type="text" value="${esc((c.links||[]).join(', '))}" data-aglinks="${esc(c.name)}" placeholder="none" style="width:120px"></label>
-      <span class="mut">added ${esc((c.added||'').slice(0,10))}</span>${c.mapped?'':' <span class="pill warn">no agent receives it</span>'}
-      <button class="ghost small" data-agrevoke="${esc(c.name)}">Revoke</button></div>`).join('');
-  PL.paint($('#agbody'),`<h2>Where new clients land</h2>
-    <p class="meta">A new client is mapped to this agent, which receives its posts. Change one client's agents under <b>Channel ⇄ Agent Mappings</b>, below.</p>
-    <div class="addline">${agentSelect(a.default_to,'data-agto style="flex:1;min-width:0"','Pick an agent…')}</div>
-    <h2>Asking to connect</h2>
-    <label class="check"><input type="checkbox" data-agact="registration" ${a.registration?'checked':''}> Accept registrations</label>
-    <p class="meta">A client sends its name and its token's hash to <span class="mono">/register</span> and gets a pairing code. Approve only a request whose code its owner told you themselves.</p>
-    ${(a.pending||[]).map(p=>`<div class="addline small"><b class="mono">${esc(p.name)}</b> <span class="mono">${esc(p.code)}</span>
-      <span class="mut">from ${esc(p.ip)}, ${ago(p.ts)} ago</span>
-      <button class="small" data-agapprove="${esc(p.code)}">Approve</button><button class="ghost small" data-agdismiss="${esc(p.code)}">Dismiss</button></div>`).join('')
-      ||`<p class="small mut">${a.registration?'Nobody waiting. This updates by itself.':'Registrations are off.'}</p>`}
-    <h2>Clients</h2>${rows||'<p class="small mut">None yet.</p>'}
-    <p class="meta" style="margin-top:8px">Or add one in a shell. The token stays in its file, made there if it doesn't exist (mode 600), and only its hash reaches peerlink:<br>
-    <span class="mono">peerlink agents add &lt;name&gt; --token-file &lt;file&gt;</span>. Revoke with <span class="mono">peerlink agents revoke &lt;name&gt;</span> or the button above.</p>
-    <h2>Endpoint</h2>
-    <p class="meta">MCP (Streamable HTTP) at <span class="mono">http://127.0.0.1:${a.port}/mcp</span>, health at <span class="mono">/healthz</span>, listening on this machine only: put a tunnel with its own access control in front of it. Every call is logged to <span class="mono">~/.peerlink/agents/audit.jsonl</span>.</p>
-    <label class="check"><input type="checkbox" data-agact="enabled" ${a.enabled?'checked':''}> Channel on</label>`)}
-const agPut=(path,body)=>api('/api/agentchannel'+path,{method:'PUT',headers:J,body:JSON.stringify(body)});
-document.addEventListener('change',e=>{const t=e.target;
-  if(t.dataset.agto!==undefined)agPut('',{default_to:t.value}).then(()=>{t.blur();loadAgents()});
-  if(t.dataset.agact==='enabled')agPut('',{enabled:t.checked}).then(loadAgents);
-  if(t.dataset.agact==='registration')agPut('',{registration:t.checked}).then(loadAgents);
-  if(t.dataset.agon)agPut('/clients/'+encodeURIComponent(t.dataset.agon),{enabled:t.checked}).then(loadAgents);
-  if(t.dataset.aglinks)agPut('/clients/'+encodeURIComponent(t.dataset.aglinks),{links:t.value.split(',').map(x=>x.trim()).filter(Boolean)}).then(r=>{if(r.error)tell(r.error);t.blur();loadAgents()});
-  if(t.dataset.agrate)agPut('/clients/'+encodeURIComponent(t.dataset.agrate),{rate_per_min:+t.value}).then(()=>{t.blur();loadAgents()})});
-document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;
-  if(t.dataset.agapprove&&await ask(`Approve the request with code ${t.dataset.agapprove}? Only if its owner told you that code themselves.`,{ok:'Approve'})){
-    const r=await agPut('',{approve:t.dataset.agapprove});if(r.error)tell(r.error);loadAgents()}
-  if(t.dataset.agdismiss){await agPut('',{dismiss:t.dataset.agdismiss});loadAgents()}
-  if(t.dataset.agrevoke&&await ask(`Revoke ${t.dataset.agrevoke}? Its token stops working at once, and its chat's mapping is removed.`,{ok:'Revoke'})){
-    await api('/api/agentchannel/clients/'+encodeURIComponent(t.dataset.agrevoke),{method:'DELETE'});loadAgents()}});
-setInterval(()=>{if(onSec('channels')&&!document.hidden)loadAgents()},5000);
-// Invited in another tab, or back from the Developer Portal: look again when this tab gets focus.
-window.addEventListener('focus',()=>{if(onSec('channels')&&dState?.configured){dGuilds=null;loadDiscord(true)}});
+// setup.js: the Setup page. What you set up once and rarely visit: Spaces, Rules, Channels, Settings, Controls and
+// Feedback. #setup is an overview, one card per section, each row with its current value; #setup/<section> is the
+// section. On a phone the overview and a section are two screens with a Back; from 900px a rail lists the sections.
+// Everything here lives inside this one function, so no top-level name reaches the other pages' scripts.
+(()=>{
+const SECS=[['spaces','Spaces'],['rules','Rules'],['channels','Channels'],['settings','Settings'],['controls','Controls'],['feedback','Feedback']];
+const SUB={spaces:'Who leads each space, and which space it sits inside',rules:'What every agent in a space is told for good',
+  channels:'Talk to your agents from Discord, Telegram, Slack or other agents',settings:'Changes reach every agent within a few seconds',
+  controls:'The daemon, its key and the browsers signed in',feedback:'Bugs and ideas agents report about peerlink'};
+// Page state: the section shown, data not in the snapshot (rules, channels), the feedback filters, the open sheet.
+const S={sec:null,rules:[],rulesAt:0,ch:{d:null,g:null,t:null,s:null,a:null,at:0,sig:''},
+  fb:{st:PL.pref('setup.fbst','needs'),ty:PL.pref('setup.fbty','')},sheet:null,live:null,dgPick:{}};
+const enc=encodeURIComponent,C=()=>PL.state?.cfg||cfg;
+const ACT={},TOG={};  // click handlers by data-su name, switch handlers by data-su-tog name
 
-// Standing rules, on their own page: yours to add, change, turn off or delete; an agent's proposal to approve.
-let allRules=[];
-async function loadRules(){const r=await api('/api/rules');if(!r||r.error)return;const had=JSON.stringify(allRules);allRules=r.rules||[];if(had!==JSON.stringify(allRules))PL.render();
-  const spaces=[...new Set([...livePeers.map(x=>x.space).filter(Boolean),...allRules.map(x=>x.space).filter(x=>x!=='*')])].sort();
-  const sopts=sel=>`<option value="*" ${sel==='*'?'selected':''}>Every space</option>`+spaces.map(n=>`<option value="${esc(n)}" ${sel===n?'selected':''}>${esc(n)}</option>`).join('');
-  const sel=$('#rulespace');if(sel&&document.activeElement!==sel){const was=sel.value||'*';sel.innerHTML=sopts(was)}
-  if(document.activeElement&&document.activeElement.closest('#rulelist'))return;
-  const row=x=>x.status==='pending'?`<div class="rule" data-rule="${esc(x.id)}"><span class="pill warn">needs approval</span><span class="grow"><b>${PL.agentLink(x.by)}</b> proposes for <b>${esc(x.space==='*'?'every space':x.space)}</b>: ${esc(x.text)}</span><button data-ruleok="approve">Approve</button><button class="ghost" data-ruleok="deny">Deny</button></div>`
-    :`<div class="rule${x.status==='off'?' off':''}" data-rule="${esc(x.id)}"><select data-rulespace aria-label="Space">${sopts(x.space)}</select><input type="text" data-ruletext value="${esc(x.text)}" maxlength="600" aria-label="Rule ${esc(x.id)}"><span class="small mut">${esc(x.id)}${x.by?' · '+esc(x.by):''}</span><button class="ghost small" data-ruleset="${x.status==='off'?'active':'off'}">${x.status==='off'?'Turn on':'Turn off'}</button><button class="ghost small danger" data-ruledel>Delete</button></div>`;
-  const shown=allRules.filter(x=>['pending','active','off'].includes(x.status)).sort((a,b)=>(a.status==='pending'?0:1)-(b.status==='pending'?0:1)||a.created-b.created);
-  PL.paint($('#rulelist'),shown.map(row).join('')||'<div class="empty">No rules yet.</div>')}
-const ruleOf=e=>e.target.closest('[data-rule]')?.dataset.rule;
-document.addEventListener('submit',async e=>{if(e.target.id!=='ruleform')return;e.preventDefault();const f=e.target;
-  const r=await post('/api/rules',{space:f.elements.space.value,text:f.elements.text.value});$('#rulemsg').textContent=r.error||'';if(!r.error)f.elements.text.value='';loadRules()});
-document.addEventListener('click',async e=>{const id=ruleOf(e);if(!id)return;const b=e.target.closest('button');if(!b)return;let r;
-  if(b.dataset.ruleok)r=await post('/api/inbox',{kind:'approval',id,action:b.dataset.ruleok});
-  else if(b.dataset.ruleset)r=await post('/api/rules/'+encodeURIComponent(id),{status:b.dataset.ruleset});
-  else if(b.dataset.ruledel!==undefined){if(!await ask('Delete this rule? Agents stop getting it from their next prompt.'))return;r=await post('/api/rules/'+encodeURIComponent(id),{delete:true})}
-  if(r&&r.error)tell(r.error);b.blur();loadRules();refresh(true)});
-document.addEventListener('change',async e=>{const id=ruleOf(e);if(!id)return;const t=e.target;
-  const r=t.dataset.ruletext!==undefined?await post('/api/rules/'+encodeURIComponent(id),{text:t.value}):t.dataset.rulespace!==undefined?await post('/api/rules/'+encodeURIComponent(id),{space:t.value}):null;
-  if(r&&r.error)tell(r.error);t.blur();loadRules()});
-// On the Rules page every 5s; elsewhere every minute, for the count in the nav.
-let rulesAt=0;loadRules().catch(()=>{});
-setInterval(()=>{if(document.hidden)return;const n=Date.now();if(onSec('rules')||n-rulesAt>60000){rulesAt=n;loadRules().catch(()=>{})}},5000);
-// Settings: the form shows the config the shell loaded; it's filled again only while you aren't changing it.
-function fillCfg(){const f=$('#cfg');cfgShown=cfg;
-  panels({swake:true,sctx:true,sapprove:true,ssee:false,sguide:false,slimits:false,sremote:!!(cfg.remotes||[]).length});
-  for(const el of f.elements){if(!el.name)continue;const v=cfg[el.name];
-    if(el.type==='checkbox')el.checked=!!v;else if(el.name==='remotes')el.value=(v||[]).join('\n');else el.value=v??''}
-  $('#guidance').placeholder=cfg.default_guidance||'';PL.settle(f)}
-$('#cfg').addEventListener('submit',async e=>{e.preventDefault();const f=e.target,b={};
-  for(const el of f.elements){if(!el.name)continue;
-    b[el.name]=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.name==='remotes'?el.value.split('\n').map(s=>s.trim()).filter(Boolean):el.value}
-  const r=await api('/api/config',{method:'PUT',headers:J,body:JSON.stringify(b)});
-  if(r&&r.error){$('#saved').textContent='Not saved: '+r.error;return}
-  PL.setCfg(r);cfgShown=r;$('#saved').textContent='Saved '+new Date().toLocaleTimeString()});
-// Spaces' Delete, and the Controls section's buttons.
-document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;
-  if(t.dataset.delspace){const n=t.dataset.delspace;if(!await ask(`Delete the ${n} space? Its agents go back to their .peerlink space or unassigned, and spaces inside it move to the top.`))return;
-    const r=await post(`/api/spaces/${encodeURIComponent(n)}/delete`);if(r.error)tell(r.error);
-    else if(r.still_in_files.length){const f=r.still_in_files;tell(`Deleted. The .peerlink in ${f.join(', ')} still name${f.length===1?'s':''} ${n}, so the agents there stay in it until you change ${f.length===1?'that file':'those files'}.`)};refresh(true);return}
-  const act=t.dataset.act;if(!act)return;
-  if(act==='logout'){await post('/api/web/logout');location.reload()}
-  if(act==='logout-all'&&await ask('Sign out every browser, including this one?')){await post('/api/web/logout',{all:true});location.reload()}
-  if(act==='rotate'&&await ask('Rotate the key? Every browser is signed out; agents pick up the new key by themselves.')){await post('/api/key/rotate');location.reload()}
-  if(act==='clean'){const parts=[...document.querySelectorAll('[data-clean]:checked')].map(c=>c.dataset.clean);
-    if(!parts.length){$('#ctlmsg').textContent='Tick what to clear first.';return}
-    if(!await ask(`Clear ${parts.join(', ')}? Rules and running agents stay; the files are backed up first.`,{ok:'Clear'}))return;
-    const r=await post('/api/clean',{parts});
-    $('#ctlmsg').textContent=r.error?'Not cleared: '+r.error:'Cleared '+Object.entries(r.cleared).map(([k,v])=>`${k} (${v})`).join(', ')+'. Backup: '+r.backup;
-    document.querySelectorAll('[data-clean]').forEach(c=>c.checked=false);refresh(true);return}
-  if(act==='restart'){await post('/api/restart');$('#ctlmsg').textContent='Restarting…';setTimeout(()=>location.reload(),2500)}});
+PL.page('setup',{title:'Setup',sections:SECS,
+  icons:{spaces:'spaces',rules:'rules',channels:'channels',settings:'settings',controls:'controls',feedback:'feedback'},
+  html:`<div class="su"><nav class="su-rail" id="su-rail" aria-label="Setup sections"></nav><div class="su-main">
+<header class="su-head" id="su-head"></header>
+<div class="su-sec" data-sec="" id="su-over"></div>
+<div class="su-sec" data-sec="spaces" id="su-spaces" hidden></div>
+<div class="su-sec" data-sec="rules" id="su-rules" hidden></div>
+<div class="su-sec" data-sec="channels" id="su-channels" hidden></div>
+<div class="su-sec" data-sec="settings" id="su-settings" hidden></div>
+<div class="su-sec" data-sec="controls" id="su-controls" hidden></div>
+<div class="su-sec" data-sec="feedback" id="su-feedback" hidden></div>
+<div class="su-sec" data-sec="?" id="su-none" hidden></div></div></div>`,
+  // The gear's count: rule proposals and new feedback, both waiting on you.
+  count:st=>(S.rules.filter(x=>x.status==='pending').length+st.issues.filter(f=>f.status==='new').length)||'',
+  render:(st,route)=>renderSetup(st,route),
+  unmount(){if(S.sheet&&PL.sheet.isOpen())S.sheet.close();S.sec=null}});
+
+// ---- Small builders ----------------------------------------------------------------------------------------------
+// A switch (the style guide's toggle): a button, so it never holds a region the way a changed field does.
+const sw=(on,label,attrs='')=>`<button type="button" class="su-sw" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" ${attrs}><i></i></button>`;
+// A grouped-list row: a link (href), a button that runs ACT[act] (act), or a plain row. title/sub/value are HTML.
+function row({href,act,arg,icon,tile,title='',sub='',value='',chev,cls='',attrs=''}){chev=chev??!!(href||act);
+  const tag=href?'a':act?'button':'div';
+  return `<${tag} class="row${cls?' '+cls:''}"${href?` href="${esc(href)}"`:''}${act?` type="button" data-su="${esc(act)}"${arg!=null?` data-arg="${esc(arg)}"`:''}`:''} ${attrs}>`
+    +(icon||tile?`<span class="tile">${tile||PL.icon(icon)}</span>`:'')
+    +`<span class="row-main"><span class="row-t">${title}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span>`
+    +(value||chev?`<span class="row-v">${value}${chev?`<span class="chev">${PL.icon('chev',18)}</span>`:''}</span>`:'')+`</${tag}>`}
+// A row whose whole width flips a switch (TOG[tog]); the switch inside is what a screen reader and the keyboard use.
+const togRow=({tog,arg='',on,title,sub='',icon,tile,disabled=false})=>`<div class="row su-tr${disabled?' dis':''}" data-su-tog="${esc(tog)}" data-arg="${esc(arg)}">`
+  +(icon||tile?`<span class="tile">${tile||PL.icon(icon)}</span>`:'')
+  +`<span class="row-main"><span class="row-t">${title}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span><span class="row-v">${sw(on,PL.plain(title.replace(/<[^>]+>/g,'')),disabled?'disabled':'')}</span></div>`;
+const card=(label,rows,extra='')=>`<section class="su-card">${label?`<div class="su-card-h">${PL.label(label)}${extra}</div>`:''}${PL.group(rows)}</section>`;
+const plural=(n,one,many)=>`${n} ${n===1?one:(many||one+'s')}`;
+const logoTile=plat=>{const [,color,logo]=PLAT[plat];return `<span class="tile su-logo" style="background:${color}">${logo}</span>`};
+// Opens a sheet and remembers it: the page closes it when you leave Setup, and a sheet with live parts is repainted
+// (S.live) when the data behind it changes.
+function sheet(opts){const h=PL.sheet.open({...opts,onClose:()=>{if(S.sheet===h){S.sheet=null;S.live=null}opts.onClose?.()}});S.sheet=h;S.live=null;return h}
+const field=(label,input,hint='')=>`<label class="field">${esc(label)}${input}${hint?`<span class="hint">${hint}</span>`:''}</label>`;
+async function put(path,body){const r=await PL.put(path,body);if(r&&r.error)PL.toast(r.error,{kind:'bad'});return r}
+
+// ---- The frame: rail, header, sections ---------------------------------------------------------------------------
+function renderSetup(st,route){const known=!route.id||SECS.some(([k])=>k===route.id),sec=known?route.id:'?';
+  if(sec!==S.sec){const was=S.sec;S.sec=sec;
+    if(sec==='channels'||sec==='')chLoad(true).catch(()=>{});
+    if(sec==='rules'||sec==='')loadRules().catch(()=>{});
+    if(was!==null)scrollTo(0,0)}
+  document.querySelectorAll('#page-setup .su-sec').forEach(d=>d.hidden=d.dataset.sec!==sec);
+  PL.paint($('#su-rail'),rail(st));head(st);
+  ({'':overview,spaces:renderSpaces,rules:renderRules,channels:renderChannels,settings:renderSettings,controls:renderControls,feedback:renderFeedback,
+    '?':()=>PL.paint($('#su-none'),PL.empty({icon:'setup',title:'No such section',text:'Setup has Spaces, Rules, Channels, Settings, Controls and Feedback.',action:{label:'Back to Setup',href:'#setup'}}))})[sec](st)}
+const waiting=()=>{const c=S.ch;return (c.t?.strangers||[]).length+(c.s?.strangers||[]).length+(c.a?.pending||[]).length};
+const secCount=(k,st)=>k==='rules'?S.rules.filter(r=>r.status==='pending').length:k==='feedback'?st.issues.filter(f=>f.status==='new').length:k==='channels'?waiting():0;
+const rail=st=>`<a class="su-ni${S.sec===''?' on':''}" href="#setup"${S.sec===''?' aria-current="page"':''}>${PL.icon('setup',18)}<span>Overview</span></a>`
+  +SECS.map(([k,t])=>`<a class="su-ni${S.sec===k?' on':''}" href="#setup/${k}"${S.sec===k?' aria-current="page"':''}>${PL.icon(k,18)}<span>${t}</span><span class="count${secCount(k,st)?' su-hot':''}">${secCount(k,st)||''}</span></a>`).join('');
+function head(st){const sec=S.sec,t=sec==='?'?'Setup':sec?SECS.find(x=>x[0]===sec)[1]:'Setup';
+  const sub=sec&&sec!=='?'?SUB[sec]:`${st.status.host} · daemon ${st.status.version}`;
+  const acts=(sec==='rules'?`<button type="button" class="btn btn-out sm" data-su="ruleadd">${PL.icon('plus',18)}Add rule</button>`:'')
+    +(sec==='?'?'':`<button type="button" class="icon-btn su-help" data-su="help" data-arg="${sec}" aria-label="How ${esc(t)} works">?</button>`);
+  PL.paint($('#su-head'),`${sec?`<a class="icon-btn su-back" href="#setup" aria-label="Back to Setup">${PL.icon('back',22)}</a>`:''}<div class="su-ht"><h1>${esc(t)}</h1><p>${esc(sub)}</p></div><div class="su-hact">${acts}</div>`)}
+
+// ---- Overview ----------------------------------------------------------------------------------------------------
+function overview(st){const sp=spaceInfo(st),c=S.ch,set=C();
+  const nested=sp.list.filter(x=>x.parent).map(x=>`${x.name} inside ${x.parent}`),un=(sp.groups.default||[]).length;
+  const rAct=S.rules.filter(r=>r.status==='active').length,rOff=S.rules.filter(r=>r.status==='off').length,rPend=S.rules.filter(r=>r.status==='pending').length;
+  const fbNew=st.issues.filter(f=>f.status==='new').length,fbAcc=st.issues.filter(f=>f.status==='accepted').length;
+  const spaces=card('Spaces',row({href:'#setup/spaces',icon:'spaces',title:'Spaces',sub:esc([...nested,un?plural(un,'agent')+' unassigned':''].filter(Boolean).join(' · ')||'Which agents can see and message each other'),value:esc(plural(sp.list.length,'space'))}));
+  const rules=card('Rules',row({href:'#setup/rules',icon:'rules',title:'Rules',sub:rPend?`<span class="su-warn">${plural(rPend,'proposal')} waiting for approval</span>`:'What every agent in a space is told for good',
+    value:(rPend?PL.badge('warn',rPend+' to approve')+' ':'')+esc(plural(rAct,'rule')+(rOff?` · ${rOff} off`:''))}));
+  const chans=card('Channels',c.d?PLATS.map(p=>row({href:'#setup/channels',tile:logoTile(p),title:PNAME[p],sub:esc(platSub(p)),value:platBadge(p)})).join('')
+    :row({href:'#setup/channels',icon:'channels',title:'Channels',sub:'Discord, Telegram, Slack and outside agents',value:'<span class="mut">Loading…</span>'}));
+  const sets=card('Settings',togRow({tog:'cfg',arg:'auto_wake_idle',on:set.auto_wake_idle,title:'Wake idle agents when a message arrives'})
+    +togRow({tog:'cfg',arg:'clear_between_tasks',on:set.clear_between_tasks,title:'Clear context after each task'})
+    +togRow({tog:'cfg',arg:'auto_approve_all',on:set.auto_approve_all,title:'Agents start agents and schedules without asking'})
+    +alertsRow()
+    +row({href:'#setup/settings',icon:'settings',title:'All settings',sub:esc(`Wake for ${set.wake_for==='all'?'every message':'questions, tasks and answers'} · ${set.wake_delay_s??0} s wait · context nudge ${set.clear_nudge_tokens?fmtNum(set.clear_nudge_tokens)+' tokens':'off'}`)}));
+  const fb=card('Feedback',row({href:'#setup/feedback',icon:'feedback',title:'Feedback',sub:esc(fbAcc?`${fbAcc} accepted, with the peerlink agent`:'Bugs and ideas agents report about peerlink'),value:fbNew?PL.badge('warn',fbNew+' new'):'<span class="mut">None new</span>'}));
+  const ctl=card('Controls',row({href:'#setup/controls',icon:'controls',title:'Daemon',sub:esc(st.status.host),value:`<span class="mono">${esc(st.status.version)}</span>`})
+    +row({href:'#setup/controls',icon:'key',tile:KEYICON,title:'Key',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
+    +row({href:'#setup/controls',icon:'agents',title:'Browsers',value:esc(st.status.browsers+' signed in')}));
+  PL.paint($('#su-over'),`<div class="su-cards">${spaces}${rules}${chans}${sets}${fb}${ctl}</div>`)}
+const KEYICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/></svg>';
+// The key's file, with the home folder as ~ (a Windows home too).
+const keyPath=st=>String(st.status.home||'').replace(/\\/g,'/').replace(/^([a-z]:)?\/Users\/[^/]+/i,'~')+'/key';
+const fmtNum=n=>Number(n)>=10000&&Number(n)%1000===0?Number(n)/1000+'k':Number(n).toLocaleString();
+
+// ---- Spaces ------------------------------------------------------------------------------------------------------
+// Every named space in tree order (a space after the one it sits inside), from the shared org tree.
+function spaceInfo(st){const o=PL.org(st),groups=o.groups,leads=st.leads||{};
+  const names=[...new Set([...Object.keys(groups),...Object.keys(leads)])].filter(n=>n&&n!=='default').sort();
+  const parentOf=n=>(groups[n]||[]).find(x=>x.space_parent)?.space_parent||leads[n]?.parent||'';
+  const kids={};for(const n of names){const p=parentOf(n);if(p&&p!==n&&names.includes(p))(kids[p]??=[]).push(n)}
+  const list=[],seen=new Set(),walk=(n,d)=>{if(seen.has(n))return;seen.add(n);list.push({name:n,depth:d,parent:parentOf(n)});for(const k of kids[n]||[])walk(k,d+1)};
+  for(const n of names)if(!names.includes(parentOf(n)))walk(n,0);
+  for(const n of names)walk(n,0);  // spaces caught in a loop of parents
+  return {o,groups,leads,names,list,parentOf,kids}}
+function renderSpaces(st){const info=spaceInfo(st),{groups,leads,o,kids}=info;
+  const card1=x=>{const n=x.name,l=leads[n],live=(groups[n]||[]).filter(a=>a.leads);
+    const lead=l?(live.length?live.map(a=>PL.agentLink(a.id,a.name)).join(', '):`${esc(l.name)} ${PL.badge('mut','offline')}`)+` <span class="mut">· ${l.how==='set'?'you picked it':'the only agent in it'}</span>`
+      :`<span class="su-warn">No lead</span> <span class="mut">· work sent to ${esc(n)} has nobody to go to</span>`;
+    const mem=[...(groups[n]||[]).filter(a=>!a.leads).map(a=>PL.agentLink(a.id,a.name)),...(o.joined[n]||[]).map(a=>`${PL.agentLink(a.id,a.name)} <span class="mut">(from ${esc(a.space==='default'?'unassigned':a.space)})</span>`)];
+    return `<article class="card su-space${x.depth?' nested':''}" style="--d:${x.depth}">
+      <div class="su-sp-h"><span class="tile">${PL.icon('spaces')}</span><div class="su-sp-t"><b>${esc(n)}</b>${x.parent?PL.badge('info','inside '+x.parent):PL.badge('mut','top level')}</div>
+      <button type="button" class="btn btn-out sm" data-su="space" data-arg="${esc(n)}">Edit</button></div>
+      <dl class="su-kv"><dt>Lead</dt><dd>${lead}</dd><dt>Members</dt><dd>${mem.join(', ')||'<span class="mut">none besides the lead</span>'}</dd>
+      ${(kids[n]||[]).length?`<dt>Inside it</dt><dd>${kids[n].map(k=>esc(k)).join(', ')}</dd>`:''}</dl></article>`};
+  const un=groups.default||[];
+  const unCard=`<article class="card su-space su-un"><div class="su-sp-h"><span class="tile">${PL.icon('agents')}</span><div class="su-sp-t"><b>Unassigned</b>${PL.badge('mut','no space')}</div></div>
+    <dl class="su-kv"><dt>Agents</dt><dd>${un.map(a=>PL.agentLink(a.id,a.name)).join(', ')||'<span class="mut">none live</span>'}</dd></dl>
+    <p class="small mut su-un-p">Agents whose folder has no space. Put one in a space from its page on Agents.</p></article>`;
+  PL.paint($('#su-spaces'),(info.list.length?`<div class="su-spaces">${info.list.map(card1).join('')}</div>`
+    :PL.empty({icon:'spaces',title:'No spaces yet',text:'A space starts when you put an agent in it, from the agent’s page on Agents.',action:{label:'Open Agents',href:'#agents'}}))
+    +`<div class="su-spaces su-un-wrap">${unCard}</div>`)}
+ACT.space=n=>{const st=PL.state,info=spaceInfo(st),l=info.leads[n],agents=(info.groups[n]||[]).filter(a=>!a.remote);
+  const cur=l?agents.find(a=>a.cwd===l.cwd&&a.name===l.name)||agents.find(a=>a.cwd===l.cwd):null;
+  const curVal=cur?cur.cwd+'\t'+cur.id:l?'keep':'';
+  const same=a=>agents.filter(b=>b.name===a.name).length>1;
+  const opts=`<option value="">No lead</option>`+agents.map(a=>`<option value="${esc(a.cwd+'\t'+a.id)}"${cur&&cur.id===a.id?' selected':''}>${esc(a.name)}${same(a)?' · '+esc(PL.tilde(a.cwd)):''}</option>`).join('')
+    +(l&&!cur?`<option value="keep" selected>${esc(l.name)} (offline)</option>`:'');
+  const up=info.parentOf(n),others=[...new Set([...info.names,...Object.keys(info.leads)])].filter(o=>o!==n&&o!=='default').sort();
+  sheet({title:n,saveLabel:'Save',body:field('Lead',`<select name="lead">${opts}</select>`,`Work sent to ${esc(n)} goes to its lead, which decides who does it. Any live agent in the space can lead it.`)
+    +field('Sits inside',`<select name="parent"><option value="">Top level</option>${others.map(o=>`<option${o===up?' selected':''}>${esc(o)}</option>`).join('')}</select>`,'Its lead then sits with that space’s agents and speaks for it there.')
+    +`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="spacedel" data-arg="${esc(n)}">Delete ${esc(n)}</button><span class="hint">Its agents go back to their .peerlink space or unassigned, and spaces inside it move to the top.</span></div>`,
+    onSave:async f=>{const lv=f.elements.lead.value,pv=f.elements.parent.value,done=[];
+      if(lv!=='keep'&&lv!==curVal){const [cwd,id]=lv.split('\t');const r=await post(`/api/spaces/${enc(n)}/lead`,lv?{cwd,id}:{cwd:''});if(r.error)return r.error;
+        done.push(lv?`${agents.find(a=>a.id===id)?.name||'it'} leads ${n}`:`${n} has no lead`)}
+      if(pv!==up){const r=await post(`/api/spaces/${enc(n)}/parent`,{parent:pv});if(r.error)return r.error;done.push(pv?`${n} sits inside ${pv}`:`${n} is at the top level`)}
+      if(done.length){PL.toast(done.join(' · '));refresh(true)}}})};
+ACT.spacedel=async n=>{if(!await ask(`Delete the ${n} space? Its agents go back to their .peerlink space or unassigned, and spaces inside it move to the top.`))return;
+  const r=await post(`/api/spaces/${enc(n)}/delete`);if(r.error)return tell(r.error);S.sheet?.close();
+  const f=r.still_in_files||[];
+  if(f.length)tell(`Deleted. The .peerlink in ${f.join(', ')} still name${f.length===1?'s':''} ${n}, so the agents there stay in it until you change ${f.length===1?'that file':'those files'}.`);
+  else PL.toast(`Deleted the ${n} space`);refresh(true)};
+
+// ---- Rules -------------------------------------------------------------------------------------------------------
+async function loadRules(){const r=await api('/api/rules');if(!r||r.error)return;S.rulesAt=Date.now();
+  const had=JSON.stringify(S.rules);S.rules=r.rules||[];if(had!==JSON.stringify(S.rules))PL.render()}
+const scopeName=s=>s==='*'?'Every space':s;
+const ruleSpaces=()=>[...new Set([...PL.state.peers.map(x=>x.space),...Object.keys(PL.state.leads||{}),...S.rules.map(x=>x.space)])].filter(n=>n&&n!=='*'&&n!=='default').sort();
+function renderRules(){const pend=S.rules.filter(r=>r.status==='pending').sort((a,b)=>a.created-b.created),
+    list=S.rules.filter(r=>r.status==='active'||r.status==='off').sort((a,b)=>a.created-b.created);
+  const prop=r=>`<article class="card su-prop"><div class="su-meta">${PL.badge('warn','Proposed')}<span><b>${PL.agentLink(r.by)}</b> for <b>${esc(scopeName(r.space))}</b> · ${PL.ago(r.created)} ago</span></div>
+    <p class="su-prop-t">${esc(r.text)}</p><div class="su-acts"><button type="button" class="btn btn-solid sm" data-su="ruleok" data-arg="${esc(r.id)}" data-ok="approve">Approve</button><button type="button" class="btn btn-soft sm" data-su="ruleok" data-arg="${esc(r.id)}" data-ok="deny">Deny</button></div></article>`;
+  const one=r=>`<div class="row su-rule${r.status==='off'?' off':''}"><span class="row-main"><span class="row-t">${esc(r.text)}</span>
+    <span class="row-s">${PL.badge(r.space==='*'?'acc':'mut',scopeName(r.space))} · ${r.by?`by ${PL.agentLink(r.by)} · `:''}${PL.ago(r.created)} ago${r.status==='off'?' · off':''} · <button type="button" class="su-link" data-su="ruleedit" data-arg="${esc(r.id)}">Edit</button></span></span>
+    <span class="row-v">${sw(r.status==='active',`Rule ${r.id} on`,`data-su-tog="rule" data-arg="${esc(r.id)}"`)}</span></div>`;
+  PL.paint($('#su-rules'),(pend.length?`${PL.label('Waiting for your approval')}<div class="su-stack">${pend.map(prop).join('')}</div>`:'')
+    +(list.length?(pend.length?PL.label('Rules'):'')+PL.group(list.map(one).join(''))
+      :pend.length?'':PL.empty({icon:'rules',title:'No rules yet',text:'A rule reaches every agent in its space and the spaces inside it, even after it clears its context.',action:{label:'Add a rule',attrs:'data-su="ruleadd"'}})))}
+ACT.ruleok=async(id,b)=>{const ok=b.dataset.ok;const r=await post('/api/inbox',{kind:'approval',id,action:ok});
+  if(r.error)PL.toast(r.error,{kind:'bad'});else PL.toast(ok==='approve'?`Rule ${id} approved: agents get it from their next prompt`:`Rule ${id} denied`);
+  await loadRules();refresh(true)};
+TOG.rule=async(id,on)=>{const set=async v=>{const r=await post('/api/rules/'+enc(id),{status:v?'active':'off'});if(r.error)PL.toast(r.error,{kind:'bad'});await loadRules();return !r.error};
+  return await set(on)&&!!PL.toast(on?`Rule ${id} on`:`Rule ${id} off: agents stop getting it`,{undo:()=>set(!on)})};
+const ruleForm=(r={space:'*',text:''})=>field('Rule',`<textarea name="text" maxlength="600" rows="4" required placeholder="Never merge to main on a Friday">${esc(r.text)}</textarea>`,'A sentence or two. Every agent it reaches has it in its instructions.')
+  +field('For',`<select name="space"><option value="*"${r.space==='*'?' selected':''}>Every space</option>${ruleSpaces().map(n=>`<option${r.space===n?' selected':''}>${esc(n)}</option>`).join('')}</select>`,'A space’s rule also reaches the spaces inside it.');
+ACT.ruleadd=()=>sheet({title:'Add a rule',saveLabel:'Add rule',body:ruleForm(),onSave:async f=>{
+  const r=await post('/api/rules',{space:f.elements.space.value,text:f.elements.text.value});if(r.error)return r.error;
+  PL.toast('Rule added: agents get it from their next prompt');await loadRules()}});
+ACT.ruleedit=id=>{const r=S.rules.find(x=>x.id===id);if(!r)return;
+  sheet({title:`Rule ${id}`,body:ruleForm(r)+`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="ruledel" data-arg="${esc(id)}">Delete rule</button><span class="hint">To stop it for a while, turn it off instead.</span></div>`,
+    onSave:async f=>{const b={};if(f.elements.text.value.trim()!==r.text)b.text=f.elements.text.value;if(f.elements.space.value!==r.space)b.space=f.elements.space.value;
+      if(!Object.keys(b).length)return;const x=await post('/api/rules/'+enc(id),b);if(x.error)return x.error;PL.toast(`Rule ${id} saved`);await loadRules()}})};
+ACT.ruledel=async id=>{if(!await ask('Delete this rule? Agents stop getting it from their next prompt.'))return;
+  const r=await post('/api/rules/'+enc(id),{delete:true});if(r.error)return tell(r.error);S.sheet?.close();PL.toast(`Rule ${id} deleted`);await loadRules()};
+
+// ---- Channels ----------------------------------------------------------------------------------------------------
+// The chat platforms' state isn't in the snapshot: it's fetched on entering the section (and the overview) and polled
+// while it's open. Their chats, and Discord's servers, come from /api/discord/channels.
+const PLATS=['discord','telegram','slack','agents'],PNAME={discord:'Discord',telegram:'Telegram',slack:'Slack',agents:'Outside agents'};
+const PSTATE={online:['ok','Online'],connecting:['info','Connecting…'],error:['bad','Error'],off:['mut','Turned off'],unconfigured:['mut','Not set up']};
+const pst=p=>({discord:S.ch.d,telegram:S.ch.t,slack:S.ch.s,agents:S.ch.a})[p]||{};
+const pConfigured=p=>p==='agents'?!!((pst(p).clients||[]).length||pst(p).registration):!!pst(p).configured;
+const routes=()=>S.ch.d?.routes||[];
+const mappedOn=p=>routes().filter(r=>platOf(r.channel_id)===p&&(r.agents||[]).length).length;
+const invited=()=>(S.ch.g||[]).some(g=>!OTHER(g));
+function platBadge(p){const x=pst(p);if(!S.ch.d)return '';const [k,t]=pConfigured(p)?PSTATE[x.state]||['mut',x.state]:['mut',p==='agents'?'No clients':'Not set up'];
+  // Someone waiting is what needs you: then that's the one badge, so a phone row keeps room for its name.
+  const w=(x.strangers||x.pending||[]).length;return w?PL.badge('warn',w+' waiting'):PL.badge(k,t)}
+function platSub(p){const x=pst(p),n=mappedOn(p);if(!pConfigured(p))return {discord:'Channels in your server',telegram:'A private chat or a group',slack:'A channel or a direct message',agents:'Other AI agents, over MCP'}[p];
+  const who=p==='discord'?x.user&&'as '+x.user:p==='telegram'?x.user&&'as @'+x.user:p==='slack'?x.user&&`as ${x.user}${x.team?' in '+x.team:''}`:plural((x.clients||[]).length,'client');
+  return [who,plural(n,p==='telegram'?'chat':'channel')+' mapped',x.error].filter(Boolean).join(' · ')}
+async function chLoad(guilds){const c=S.ch;
+  const [d,t,s,a]=await Promise.all(['/api/discord','/api/telegram','/api/slack','/api/agentchannel'].map(p=>api(p)));
+  const chats=x=>JSON.stringify([Object.keys(x.t?.chats||{}),Object.keys(x.s?.chats||{}),(x.a?.clients||[]).map(k=>k.name),x.d?.configured]);
+  const before=c.d?chats(c):'';Object.assign(c,{d,t,s,a,at:Date.now()});
+  if(guilds||c.g===null||before!==chats(c)){const r=await api('/api/discord/channels'+(guilds==='fresh'?'?fresh=1':''));c.g=r.guilds||[];if(r.error&&guilds==='fresh')PL.toast(r.error,{kind:'bad'})}
+  const sig=JSON.stringify([d,t,s,a,c.g]);if(sig!==c.sig){c.sig=sig;PL.render();S.live?.()}}
+const chanName=id=>{for(const g of S.ch.g||[])for(const c of g.channels)if(c.id===id)return (OTHER(g)?'':'#')+c.name;return 'channel '+id};
+const online=id=>pst(platOf(id)).state==='online';
+function renderChannels(){const c=S.ch;if(!c.d){PL.paint($('#su-channels'),`<div class="su-load">Loading…</div>`);return}
+  const d=c.d,anySet=PLATS.some(pConfigured),hasChats=invited()||(c.g||[]).some(g=>OTHER(g)&&g.channels.length);
+  // People who wrote to a bot and outside agents asking to connect: answered right here.
+  const wait=[...(c.t?.strangers||[]).map(x=>({p:'telegram',x})),...(c.s?.strangers||[]).map(x=>({p:'slack',x}))].map(({p,x})=>`<div class="row su-wrow">${logoTile(p)}<span class="row-main"><span class="row-t">${esc(x.name)}${x.username?` <span class="mut">@${esc(x.username)}</span>`:''}</span>
+      <span class="row-s">wrote to the ${PNAME[p]} ${p==='slack'?'app':'bot'} in ${esc(x.chat_name||x.chat)} · ${PL.ago(x.ts)} ago · id <span class="mono">${esc(x.id)}</span></span></span>
+      <span class="su-acts"><button type="button" class="btn btn-solid sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="allow">Allow</button><button type="button" class="btn btn-soft sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="dismiss">Dismiss</button></span></div>`)
+    .concat((c.a?.pending||[]).map(x=>`<div class="row su-wrow">${logoTile('agents')}<span class="row-main"><span class="row-t mono">${esc(x.name)}</span><span class="row-s">asks to connect · code <span class="mono">${esc(x.code)}</span> · from ${esc(x.ip)}, ${PL.ago(x.ts)} ago</span></span>
+      <span class="su-acts"><button type="button" class="btn btn-solid sm" data-su="agapprove" data-arg="${esc(x.code)}">Approve</button><button type="button" class="btn btn-soft sm" data-su="agdismiss" data-arg="${esc(x.code)}">Dismiss</button></span></div>`));
+  const mapRows=routes().filter(r=>(r.agents||[]).length).map(r=>row({act:'map',arg:r.channel_id,tile:logoTile(platOf(r.channel_id)),title:esc(chanName(r.channel_id)),
+    sub:r.agents.map(a=>`${esc(entryName(a))} <span class="mut">${[a.receives&&'receives',a.sends&&'sends'].filter(Boolean).join(', ')||'neither'}</span>`).join(' · ')})).join('');
+  const dg=c.a?.delegation,hasAg=routes().some(r=>String(r.channel_id).startsWith('agents:'));
+  PL.paint($('#su-channels'),(wait.length?card('Waiting for you',wait.join('')):'')
+    +card('Platforms',PLATS.map(p=>row({act:'plat',arg:p,tile:logoTile(p),title:PNAME[p],sub:esc(platSub(p)),value:platBadge(p)})).join(''))
+    +(anySet?card('Channel ⇄ agent mappings',(hasChats?mapRows||row({title:'<span class="mut">No channels mapped yet</span>',sub:'Map one to pick which agents hear you there, and which post there.'})
+        :row({title:'<span class="mut">No channels yet</span>',sub:esc(pst('discord').configured&&!invited()?'Invite the Discord bot to a server, or message a Telegram or Slack bot, and its channels show up here.':'Channels and chats show up here once a bot can see them.')}))
+      +(hasChats?row({act:'mapadd',icon:'plus',title:'Map a channel',chev:false}):'')
+      +(d.configured?row({act:'dm',icon:'messages',title:'Direct messages to the Discord bot',value:esc(d.dm?folderLabel(d.dm):'Nobody (ignored)')}):'')
+      +(dg&&hasAg?togRow({tog:'dgswitch',on:dg.switch,title:'Outside agents may pass on your approvals',sub:esc(`Only the clients and kinds of work you tick on their mapping, on ${dg.envs.join(' or ')}, at most ${dg.per_hour} an hour and ${dg.per_day} a day, ${String(dg.hours[0]).padStart(2,'0')}:00–${dg.hours[1]}:00. Prod, money, secrets and deletions always need you.`)}):''),
+      `<button type="button" class="btn btn-ghost sm" data-su="chrefresh">Refresh channels</button>`)
+      +card('What agents can send',togRow({tog:'dopt',arg:'buttons',on:d.buttons,title:'Buttons for choices',sub:'Tap one and it goes back to the agent as your answer. Off, choices are a numbered list.'})
+        +togRow({tog:'dopt',arg:'files_out',on:d.files_out,title:'Files from agents',sub:'An agent can attach files from this machine to its messages'})
+        +togRow({tog:'dopt',arg:'files_in',on:d.files_in,title:'Files to agents',sub:'What you attach is saved under ~/.peerlink/files and the agent gets the paths'})
+        +row({act:'maxmb',icon:'feedback',tile:FILEICON,title:'Largest file, either way',value:esc(d.max_file_mb+' MB')})):''))}
+const FILEICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+// An agent on a mapping is named by folder and name; one that isn't running says so.
+const entryName=e=>{const a=liveAgents().find(x=>x.cwd===e.cwd&&x.name.toLowerCase()===String(e.name||'').toLowerCase());return a?a.name:e.name?e.name+' (not running)':folderLabel(e.cwd)};
+// The mapping saves whole, with Undo: the channels that have an agent, and where Discord DMs go.
+async function saveMap(next,msg,undo=true){const prev=JSON.parse(JSON.stringify({routes:routes(),dm:S.ch.d.dm||''}));
+  const body={routes:next.routes.filter(r=>r.channel_id&&(r.agents||[]).length),dm:next.dm??prev.dm};
+  const r=await PL.put('/api/discord',body);if(r.error){PL.toast(r.error,{kind:'bad'});return false}
+  Object.assign(S.ch.d,JSON.parse(JSON.stringify(body)));PL.render();S.live?.();
+  if(msg)PL.toast(msg,undo?{undo:()=>saveMap(prev,'Put back',false)}:{});return true}
+const cloneRoutes=()=>JSON.parse(JSON.stringify(routes()));
+// One channel's sheet: its agents, each receiving and sending, a test post, and for an outside agent's chat whether it
+// may approve for you. Changes apply at once; the sheet redraws itself from the saved mapping.
+ACT.map=id=>{const body=()=>{const r=routes().find(x=>x.channel_id===id);if(!r)return '<p class="mut">This channel is no longer mapped.</p>';
+    return `<div class="su-sh-h">${platLogo(id)}<b>${esc(chanName(id))}</b><button type="button" class="btn btn-out sm" data-su="maptest" data-arg="${esc(id)}"${online(id)?'':' disabled'}>Send a test</button></div>
+    <p class="hint">Your messages go to every agent that <b>receives</b>. To reach one, reply to its post or start with its name and a colon. An agent that <b>sends</b> posts its messages and updates here.</p>
+    <div class="su-magents">${(r.agents||[]).map((a,j)=>`<div class="su-magent"><span class="su-mn">${esc(entryName(a))}</span>
+      <span class="su-chips"><button type="button" class="chip" aria-pressed="${!!a.receives}" data-su="mapflag" data-arg="${esc(id)}" data-j="${j}" data-f="receives">Receives</button><button type="button" class="chip" aria-pressed="${!!a.sends}" data-su="mapflag" data-arg="${esc(id)}" data-j="${j}" data-f="sends">Sends</button>
+      <button type="button" class="icon-btn" data-su="mapun" data-arg="${esc(id)}" data-j="${j}" aria-label="Take ${esc(entryName(a))} off this channel">${PL.icon('x',18)}</button></span></div>`).join('')}</div>
+    ${field('Add an agent',entrySelect(`data-su-pick="mapadd1" data-arg="${esc(id)}"`,'Pick an agent…'))}${delegBox(id)}
+    <div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="mapdel" data-arg="${esc(id)}">Stop using this channel</button><span class="hint">Its agents no longer hear or post there.</span></div>`};
+  const h=sheet({title:'Channel',body:'<div data-live></div>'}),box=h.body.querySelector('[data-live]');
+  S.live=()=>PL.paint(box,body());S.live()};
+ACT.mapflag=async(id,b)=>{const next=cloneRoutes(),a=next.find(r=>r.channel_id===id)?.agents?.[+b.dataset.j];if(!a)return;a[b.dataset.f]=!a[b.dataset.f];
+  await saveMap({routes:next},`${a.name||'It'} ${a[b.dataset.f]?'now':'no longer'} ${b.dataset.f==='receives'?'receives':'sends'} in ${chanName(id)}`)};
+ACT.mapun=async(id,b)=>{const next=cloneRoutes(),r=next.find(x=>x.channel_id===id);if(!r)return;const [a]=r.agents.splice(+b.dataset.j,1);
+  if(!r.agents.length&&!await ask(`Stop using ${chanName(id)}? It has no other agents, so it's unmapped.`,{ok:'Stop'}))return;
+  if(await saveMap({routes:next},`${a.name||'It'} is off ${chanName(id)}`)&&!r.agents.length)S.sheet?.close()};
+ACT.mapdel=async id=>{if(!await ask(`Stop using ${chanName(id)}? Its agents no longer hear or post there.`))return;
+  if(await saveMap({routes:cloneRoutes().filter(r=>r.channel_id!==id)},`${chanName(id)} unmapped`))S.sheet?.close()};
+ACT.maptest=async(id,b)=>{b.disabled=true;const r=await post('/api/discord/test',{channel_id:id});b.disabled=false;
+  r.error?PL.toast(r.error,{kind:'bad'}):PL.toast(`Test sent to ${chanName(id)}`)};
+// The first agent on a channel receives and sends; after that, one that only posts there is the likelier want.
+async function addAgent(id,val){const [cwd,name]=val.split('\t'),next=cloneRoutes();let r=next.find(x=>x.channel_id===id);if(!r)next.push(r={channel_id:id,agents:[]});
+  if(r.agents.some(a=>a.cwd===cwd&&(a.name||'').toLowerCase()===name.toLowerCase()))return true;
+  r.agents.push({cwd,name,receives:!r.agents.some(a=>a.receives),sends:true});return saveMap({routes:next},`${name} added to ${chanName(id)}`)}
+const PICK={mapadd1:(id,el)=>{const v=el.value;el.blur();el.value='';PL.settle(el);if(v)addAgent(id,v)}};
+ACT.mapadd=()=>{const taken=new Set(routes().filter(r=>(r.agents||[]).length).map(r=>r.channel_id));
+  const opts=(S.ch.g||[]).map(g=>{const cs=g.channels.filter(c=>!taken.has(c.id));return cs.length?`<optgroup label="${esc(g.name)}">${cs.map(c=>`<option value="${esc(c.id)}">${OTHER(g)?'':'#'}${esc(c.name)}</option>`).join('')}</optgroup>`:''}).join('');
+  sheet({title:'Map a channel',saveLabel:'Map it',body:opts?field('Channel',`<select name="ch" required><option value="">Pick a channel…</option>${opts}</select>`,'Every channel and chat a bot of yours can see.')
+      +field('First agent',entrySelect('name="ag" required','Pick an agent…'),'It receives your messages there and can post there. Add more agents after.')
+    :`<p class="mut">Every channel the bots can see is mapped already. Invite a bot somewhere new, then Refresh channels.</p>`,
+    onSave:opts?async f=>{const ch=f.elements.ch.value,ag=f.elements.ag.value;if(!ch||!ag)return 'Pick a channel and an agent.';
+      if(!await addAgent(ch,ag))return false;S.sheet?.close();ACT.map(ch)}:null})};
+ACT.dm=()=>{const d=S.ch.d;sheet({title:'Discord direct messages',body:field('Direct messages to the Discord bot go to',agentSelect(d.dm||'','name="dm"','Nobody (ignored)'),'Only you, and the people you allow, can DM it.'),
+  onSave:async f=>{if(f.elements.dm.value===(d.dm||''))return;await saveMap({routes:routes(),dm:f.elements.dm.value},'Direct messages now go to '+(f.elements.dm.value?folderLabel(f.elements.dm.value):'nobody'))}})};
+ACT.maxmb=()=>{const d=S.ch.d;sheet({title:'Largest file',body:field('Largest file, either way (MB)',`<input type="number" name="mb" min="1" max="500" step="1" value="${esc(d.max_file_mb)}" required>`,'Discord allows 10 MB without Nitro; Telegram bots get files up to 20 MB.'),
+  onSave:async f=>{const v=Number(f.elements.mb.value),was=d.max_file_mb;if(v===was)return;const r=await PL.put('/api/discord',{max_file_mb:v});if(r.error)return r.error;
+    await chLoad();PL.toast(`Largest file: ${v} MB`,{undo:async()=>{await PL.put('/api/discord',{max_file_mb:was});chLoad()}})}})};
+TOG.dopt=async(k,on)=>{const set=async v=>{const r=await put('/api/discord',{[k]:v});await chLoad();return !r.error};
+  return await set(on)&&!!PL.toast(`${{buttons:'Buttons',files_out:'Files from agents',files_in:'Files to agents'}[k]} ${on?'on':'off'}`,{undo:()=>set(!on)})};
+TOG.dgswitch=async(_,on)=>{const set=async v=>{const r=await put('/api/agentchannel/delegation',{switch:v});await chLoad();return !r.error};
+  return await set(on)&&!!PL.toast(on?'Outside agents may pass on your approvals':'Outside agents can no longer approve for you',{undo:()=>set(!on)})};
+ACT.chrefresh=async(_,b)=>{b.disabled=true;await chLoad('fresh').catch(()=>{});b.disabled=false;PL.toast('Channels refreshed')};
+// Delegated approvals on an outside agent's mapping: whether it may pass on your OK, and for which kinds of work.
+function delegBox(id){const dg=S.ch.a?.delegation;if(!dg||!String(id).startsWith('agents:'))return '';
+  const n=String(id).slice(7),c=(dg.clients||{})[n];if(!c)return '';
+  if(c.never)return `<div class="su-dg"><b>Can’t approve for you</b><p class="hint">${esc(c.never)}</p></div>`;
+  const pick=c.on?c.scopes:(S.dgPick[n]||[]),days=c.on?Math.max(0,Math.ceil((c.expires*1000-Date.now())/86400000)):0;
+  return `<div class="su-dg"><div class="row su-tr" data-su-tog="dgon" data-arg="${esc(n)}"><span class="row-main"><span class="row-t">Can approve for you</span><span class="row-s">${esc([`From its own token only`,c.on&&`${plural(days,'day')} left (ticking a kind renews it for ${dg.grant_days})`,!dg.switch&&'the switch on Channels is off',c.recent&&`${c.recent} in the last day`].filter(Boolean).join(' · '))}</span></span><span class="row-v">${sw(c.on,'Can approve for you')}</span></div>
+    ${(c.linked||[]).length?PL.badge('warn','linked with '+c.linked.join(', ')):''}${c.problem?PL.badge('warn',c.problem):''}
+    <div class="su-chips su-scopes" role="group" aria-label="Kinds of work">${dg.scopes.map(sc=>`<button type="button" class="chip mono" aria-pressed="${pick.includes(sc)}" data-su="dgscope" data-arg="${esc(n)}" data-sc="${esc(sc)}">${esc(sc)}</button>`).join('')}</div></div>`}
+async function dgPut(n,body){const r=await put('/api/agentchannel/delegation/'+enc(n),body);await chLoad();S.live?.();return !r.error}
+TOG.dgon=async(n,on)=>{const c=(S.ch.a.delegation.clients||{})[n]||{},sc=c.on?c.scopes:(S.dgPick[n]||[]);
+  if(on&&!sc.length){tell('Tick the kinds of work it may approve first.');return false}
+  return await dgPut(n,{on,scopes:sc})&&!!PL.toast(on?`${n} can approve for you`:`${n} can no longer approve for you`,{undo:()=>dgPut(n,{on:!on,scopes:sc})})};
+ACT.dgscope=async(n,b)=>{const c=(S.ch.a.delegation.clients||{})[n]||{},cur=c.on?[...c.scopes]:[...(S.dgPick[n]||[])],sc=b.dataset.sc;
+  const next=cur.includes(sc)?cur.filter(x=>x!==sc):[...cur,sc];S.dgPick[n]=next;
+  if(c.on)await dgPut(n,{on:next.length>0,scopes:next});else{b.setAttribute('aria-pressed',String(next.includes(sc)))}};
+// People who wrote to a Telegram bot or a Slack app, waiting to be allowed; outside agents asking to connect.
+ACT.stranger=async(id,b)=>{const p=b.dataset.p,r=await PL.put('/api/'+p,{[b.dataset.do]:id});
+  if(r.error)PL.toast(r.error,{kind:'bad'});else PL.toast(b.dataset.do==='allow'?'Allowed: they can message your agents now':'Dismissed');chLoad()};
+ACT.agapprove=async code=>{if(!await ask(`Approve the request with code ${code}? Only if its owner told you that code themselves.`,{ok:'Approve'}))return;
+  const r=await PL.put('/api/agentchannel',{approve:code});if(r.error)tell(r.error);else PL.toast('Approved');chLoad()};
+ACT.agdismiss=async code=>{await PL.put('/api/agentchannel',{dismiss:code});PL.toast('Dismissed');chLoad()};
+
+// A platform's sheet. Not set up: the steps and the token. Set up: its state, who may talk to it, and Disconnect.
+// Its live parts repaint as the state is polled; fields you're changing are left alone (PL.paint).
+ACT.plat=p=>{const set=pConfigured(p)||p==='agents';
+  const h=sheet({title:PNAME[p],wide:p==='agents',body:'<div data-live></div>',saveLabel:set?'Save':'Connect',onSave:f=>platSave(p,f,set)});
+  const box=h.body.querySelector('[data-live]');S.live=()=>{if(pConfigured(p)!==set&&p!=='agents'){ACT.plat(p);return}PL.paint(box,platBody(p))};S.live()};
+const stateLine=(p)=>{const x=pst(p),[k,t]=p==='agents'&&!pConfigured(p)?['mut','No clients']:PSTATE[x.state]||['mut',x.state||''];
+  return `<div class="su-state">${PL.badge(k,t)}${x.user?`<span class="mut">as ${esc(p==='telegram'?'@'+x.user:x.user)}${x.team?' in '+esc(x.team):''}</span>`:''}${x.error?`<span class="err">${esc(x.error)}</span>`:''}</div>`};
+const step=(n,title,body,done)=>`<li class="su-step${done?' done':''}"><span class="su-step-n">${done?PL.icon('check',16):n}</span><div><div class="su-step-t">${title}</div>${body}</div></li>`;
+const ext=(href,label,cls='btn btn-out sm')=>`<a class="${cls}" href="${esc(href)}" target="_blank" rel="noreferrer">${label} ↗</a>`;
+const strangers=p=>{const l=pst(p).strangers||[];return l.length?`<div class="su-list">${l.map(x=>`<div class="su-li"><span><b>${esc(x.name)}</b>${x.username?` @${esc(x.username)}`:''} <span class="mono mut">${esc(x.id)}</span><br><span class="small mut">in ${esc(x.chat_name||x.chat)}, ${PL.ago(x.ts)} ago</span></span>
+  <span class="su-acts"><button type="button" class="btn btn-solid sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="allow">Allow</button><button type="button" class="btn btn-soft sm" data-su="stranger" data-p="${p}" data-arg="${esc(x.id)}" data-do="dismiss">Dismiss</button></span></div>`).join('')}</div>`
+  :'<p class="hint">Nobody waiting. This updates by itself.</p>'};
+const runRow=(p,label)=>togRow({tog:'prun',arg:p,on:pst(p).enabled,title:label,sub:'Off, it stops answering until you turn it on'});
+const idsField=(label,name,vals,ph,hint)=>field(label,`<input type="text" class="mono" name="${name}" value="${esc((vals||[]).join(', '))}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">`,hint);
+const disc=(p,text)=>`<div class="su-dz"><button type="button" class="btn btn-danger sm" data-su="pforget" data-arg="${p}">Disconnect</button><span class="hint">${text}</span></div>`;
+function platBody(p){const x=pst(p);
+  if(p==='discord'){const d=x,inv=invited(),servers=(S.ch.g||[]).filter(g=>!OTHER(g)).map(g=>g.name);
+    if(!d.configured)return `<p class="hint">Each channel you map has agents: ones that <b>receive</b> get your messages there, ones that <b>send</b> can post there. Only you, the bot’s owner, can talk to them.</p><ol class="su-steps">
+      ${step(1,'Create the bot and paste its token',`<p class="hint">On the Developer Portal, click <b>New Application</b> and give it a name. Open <b>Bot</b>, click <b>Reset Token</b>, and copy it. Optional: on the same page, turn on <b>Message Content Intent</b> so you can talk to it without @mentioning it.</p>${ext('https://discord.com/developers/applications','Developer Portal')}
+        ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="Bot token" required>')}`)}
+      ${step(2,'Invite it to your server','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map channels to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
+    const reading=d.reads_messages?'<p class="hint">Everything you write in a mapped channel goes to every agent that receives there. No @mention needed.</p>'
+      :d.message_content_switch?'<p class="hint">The Message Content switch is on in Discord, but the bot connected before it was.</p><button type="button" class="btn btn-out sm" data-su="dreconnect">Reconnect now</button>'
+      :`<p class="hint">${d.message_content_switch===false?'<b>Discord says the Message Content switch is off.</b> ':''}@mention the bot each time, or DM it. To talk without @mentioning, turn on <b>Message Content Intent</b> on the Bot page (under Privileged Gateway Intents) and save.</p><div class="su-acts">${ext(d.app_id?`https://discord.com/developers/applications/${d.app_id}/bot`:'https://discord.com/developers/applications','Bot page')}<button type="button" class="btn btn-out sm" data-su="dcheck">I turned it on</button></div>`;
+    return `${stateLine(p)}<p class="hint">Token <span class="mono">${esc(d.token_hint)}</span> saved.</p>${PL.group(runRow(p,'Bot running'))}
+      <ol class="su-steps">${step(2,'Invite it to your server',`<p class="hint">${inv?`In ${esc(servers.join(', '))}.`:'Pick your server on Discord’s page, then come back here. This step completes on its own.'}</p>${d.invite_url?ext(d.invite_url,inv?'Invite to another server':'Invite the bot',inv?'btn btn-out sm':'btn btn-solid sm'):''}`,inv)}
+      ${step(3,'Map channels to agents','<p class="hint">Close this and pick <b>Map a channel</b>.</p>',mappedOn('discord')>0)}</ol>
+      ${PL.label('Messages')}${reading}
+      ${PL.label('Who can talk to agents')}${idsField('People, by Discord user id','allowed_users',d.allowed_users,'e.g. 1562000000000000000','Only you can, as the bot’s owner (or its team’s members). People listed here can message agents and answer buttons as you do. To find an id, turn on Developer Mode in Discord, right-click the person and choose Copy User ID. Separate with commas.')}
+      ${idsField('Bots that can post to agents','trusted_bots',d.trusted_bots,'e.g. 1562000000000000000','Other bots are ignored unless listed here. List only bots you control.')}
+      ${disc(p,'The channel mapping is kept.')}`}
+  if(p==='telegram'){const t=x;
+    if(!t.configured)return `<p class="hint">A private chat with your bot, or a group it’s in, works like a Discord channel. Telegram bots answer anyone who finds them, so peerlink ignores everyone until you allow them.</p><ol class="su-steps">
+      ${step(1,'Create the bot and paste its token',`<p class="hint">In Telegram, message @BotFather, send <span class="mono">/newbot</span>, and pick a name and a username. It answers with a token: paste it here.</p>${ext('https://t.me/BotFather','Open @BotFather')}
+        ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="123456789:AAE…" required>')}`)}
+      ${step(2,'Message it, then allow yourself','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map chats to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
+    return `${stateLine(p)}<p class="hint">Token <span class="mono">${esc(t.token_hint)}</span> saved.</p>${PL.group(runRow(p,'Bot running'))}
+      <ol class="su-steps">${step(2,'Message it, then allow yourself',`<p class="hint">Open the bot and send it any message. You show up here; allow yourself, and the bot answers you from then on.</p>${t.user?ext('https://t.me/'+t.user,'Open @'+t.user):''}${strangers(p)}`,(t.allowed_users||[]).length>0)}
+      ${step(3,'Map chats to agents',`<p class="hint">Every chat the bot has heard from is listed under <b>Map a channel</b>. ${t.reads_messages?'In groups it reads every message.':'In groups, Telegram shows the bot only commands, @mentions and replies to it. To talk without @mentioning, send <span class="mono">/setprivacy</span> to @BotFather, choose Disable, then remove the bot from the group and add it again.'} Commands work too: <span class="mono">/status</span>, <span class="mono">/inbox</span>, <span class="mono">/peerlink run loop 5m check the deploy</span>.</p>`,mappedOn('telegram')>0)}</ol>
+      ${idsField('Allowed people, by Telegram user id','allowed_users',t.allowed_users,'e.g. 123456789','They can message agents and answer buttons as you do. Separate with commas.')}
+      ${disc(p,'The chat mapping and allowed people are kept.')}`}
+  if(p==='slack'){const t=x;
+    if(!t.configured)return `<p class="hint">A channel your Slack app is in, or a direct message with it, works like a Discord channel. Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them.</p><ol class="su-steps">
+      ${step(1,'Create the app and paste its two tokens',`<p class="hint">The link fills in everything the app needs; pick your workspace and click <b>Create</b>.</p>${ext(t.manifest_url,'Create the app on Slack','btn btn-solid sm')}
+        <p class="hint"><b>App-level token:</b> on the app’s <b>Basic Information</b> page, under <b>App-Level Tokens</b>, click <b>Generate Token and Scopes</b>, add the scope <span class="mono">connections:write</span>, and copy the token (it starts <span class="mono">xapp-</span>).</p>
+        ${field('App-level token','<input type="password" class="mono" name="app_token" autocomplete="off" spellcheck="false" placeholder="xapp-…" required>')}
+        <p class="hint"><b>Bot token:</b> on <b>Install App</b>, click <b>Install to Workspace</b>, allow it, and copy the <b>Bot User OAuth Token</b> (it starts <span class="mono">xoxb-</span>).</p>
+        ${field('Bot token','<input type="password" class="mono" name="token" autocomplete="off" spellcheck="false" placeholder="xoxb-…" required>')}`)}
+      ${step(2,'Message it, then allow yourself','<p class="hint">Next, once it’s connected.</p>')}${step(3,'Map channels to agents','<p class="hint">On Channels, under mappings.</p>')}</ol>`;
+    return `${stateLine(p)}<p class="hint">Tokens <span class="mono">${esc(t.token_hint)}</span> and <span class="mono">${esc(t.app_token_hint)}</span> saved.</p>${PL.group(runRow(p,'App running'))}
+      <ol class="su-steps">${step(2,'Message it, then allow yourself',`<p class="hint">In Slack, find <b>${esc(t.user||'peerlink')}</b> under <b>Apps</b> and send it any message. You show up here; allow yourself, and it answers you from then on.</p>${strangers(p)}`,(t.allowed_users||[]).length>0)}
+      ${step(3,'Map channels to agents',`<p class="hint">Your direct message with the app, and every channel it’s in, is listed under <b>Map a channel</b>. To add it to a channel, type <span class="mono">/invite @${esc(t.user||'peerlink')}</span> there; it reads every message in that channel. Commands work too: <span class="mono">/peerlink status</span>, <span class="mono">/peerlink inbox</span>.</p>`,mappedOn('slack')>0)}</ol>
+      ${idsField('Allowed people, by Slack member id','allowed_users',t.allowed_users,'e.g. U012AB3CD','They can message agents and answer buttons as you do. Separate with commas.')}
+      ${disc(p,'The channel mapping and allowed people are kept.')}`}
+  // Outside agents (MCP clients): added with the CLI, so the token never passes through here.
+  const a=x,clients=(a.clients||[]).map(c=>`<div class="su-client"><div class="su-client-h"><b class="mono">${esc(c.name)}</b><span class="small mut">added ${esc((c.added||'').slice(0,10))}</span>${c.mapped?'':PL.badge('warn','no agent receives it')}
+      <span class="su-grow"></span>${sw(c.enabled,`${c.name} on`,`data-su-tog="agon" data-arg="${esc(c.name)}"`)}</div>
+    <div class="su-client-f">${field('Posts per minute',`<input type="number" min="1" max="120" name="rate:${esc(c.name)}" value="${esc(c.rate_per_min)}">`)}${field('Linked with',`<input type="text" name="links:${esc(c.name)}" value="${esc((c.links||[]).join(', '))}" placeholder="none">`,'Clients it messages straight, with post_to_client. Nobody here reads those.')}</div>
+    <button type="button" class="btn btn-danger sm" data-su="agrevoke" data-arg="${esc(c.name)}">Revoke</button></div>`).join('');
+  return `${stateLine(p)}<p class="hint">An agent outside this machine (any MCP client) can post to the agent you pick and read its replies, and nothing else: <span class="mono">post_message</span> and <span class="mono">read_replies</span>. Each client is a chat of its own, with its own token; only the token’s hash is kept here. Your agents can answer a client but never start a conversation with it, and your approvals and questions never go there.</p>
+    ${PL.group(togRow({tog:'agact',arg:'enabled',on:a.enabled,title:'Channel on',sub:esc(`MCP at http://127.0.0.1:${a.port}/mcp, this machine only`)})+togRow({tog:'agact',arg:'registration',on:a.registration,title:'Accept registrations',sub:'A client sends its name and its token’s hash to /register and gets a pairing code'}))}
+    ${field('Where new clients land',agentSelect(a.default_to,'name="default_to"','Pick an agent…'),'A new client is mapped to this agent, which receives its posts. Change one client’s agents on its mapping.')}
+    ${PL.label('Asking to connect')}${(a.pending||[]).map(q=>`<div class="su-li"><span><b class="mono">${esc(q.name)}</b> <span class="mono">${esc(q.code)}</span><br><span class="small mut">from ${esc(q.ip)}, ${PL.ago(q.ts)} ago</span></span><span class="su-acts"><button type="button" class="btn btn-solid sm" data-su="agapprove" data-arg="${esc(q.code)}">Approve</button><button type="button" class="btn btn-soft sm" data-su="agdismiss" data-arg="${esc(q.code)}">Dismiss</button></span></div>`).join('')
+      ||`<p class="hint">${a.registration?'Nobody waiting. This updates by itself.':'Registrations are off.'} Approve only a request whose code its owner told you themselves.</p>`}
+    ${PL.label('Clients')}${clients||'<p class="hint">None yet.</p>'}
+    <p class="hint">Or add one in a shell. The token stays in its file, made there if it doesn’t exist (mode 600), and only its hash reaches peerlink: <span class="mono">peerlink agents add &lt;name&gt; --token-file &lt;file&gt;</span>. Revoke with <span class="mono">peerlink agents revoke &lt;name&gt;</span>.</p>
+    <p class="hint">Health at <span class="mono">/healthz</span>. Put a tunnel with its own access control in front of it. Every call is logged to <span class="mono">~/.peerlink/agents/audit.jsonl</span>.</p>`}
+async function platSave(p,f,set){const v=n=>f.elements[n]?.value?.trim()??'';
+  if(!set){const body=p==='slack'?{token:v('token'),app_token:v('app_token')}:{token:v('token')};
+    if(!body.token||p==='slack'&&!body.app_token)return p==='slack'?'Paste both tokens.':'Paste the token.';
+    const r=await PL.put('/api/'+p,body);if(r.error)return r.error;PL.toast(`${PNAME[p]} connected`);await chLoad(true);return}
+  if(p==='agents'){const a=S.ch.a,jobs=[];
+    if(f.elements.default_to&&f.elements.default_to.value!==(a.default_to||''))jobs.push(PL.put('/api/agentchannel',{default_to:f.elements.default_to.value}));
+    for(const c of a.clients||[]){const rate=Number(v('rate:'+c.name)),links=v('links:'+c.name).split(',').map(s=>s.trim()).filter(Boolean);
+      if(rate&&rate!==c.rate_per_min)jobs.push(PL.put('/api/agentchannel/clients/'+enc(c.name),{rate_per_min:rate}));
+      if(links.join(',')!==(c.links||[]).join(','))jobs.push(PL.put('/api/agentchannel/clients/'+enc(c.name),{links}))}
+    const errs=(await Promise.all(jobs)).filter(r=>r.error).map(r=>r.error);await chLoad();if(errs.length)return errs.join('; ');if(jobs.length)PL.toast('Saved');return}
+  const x=pst(p),b={};
+  for(const k of ['allowed_users','trusted_bots'])if(f.elements[k]&&v(k)!==(x[k]||[]).join(', '))b[k]=v(k);
+  if(!Object.keys(b).length)return;const r=await PL.put('/api/'+p,b);if(r.error)return r.error;await chLoad();PL.toast('Saved')}
+TOG.prun=async(p,on)=>{const set=async v=>{const r=await put('/api/'+p,{enabled:v});await chLoad();return !r.error};
+  return await set(on)&&!!PL.toast(`${PNAME[p]} ${on?'on':'turned off'}`,{undo:()=>set(!on)})};
+TOG.agact=async(k,on)=>{const set=async v=>{const r=await put('/api/agentchannel',{[k]:v});await chLoad();return !r.error};
+  return await set(on)&&!!PL.toast(`${k==='enabled'?'Outside agents channel':'Registrations'} ${on?'on':'off'}`,{undo:()=>set(!on)})};
+TOG.agon=async(n,on)=>{const set=async v=>{const r=await put('/api/agentchannel/clients/'+enc(n),{enabled:v});await chLoad();return !r.error};
+  return await set(on)&&!!PL.toast(`${n} ${on?'on':'off'}`,{undo:()=>set(!on)})};
+ACT.agrevoke=async n=>{if(!await ask(`Revoke ${n}? Its token stops working at once, and its chat's mapping is removed.`,{ok:'Revoke'}))return;
+  const r=await PL.del('/api/agentchannel/clients/'+enc(n));if(r.error)tell(r.error);else PL.toast(`${n} revoked`);chLoad()};
+ACT.pforget=async p=>{if(!await ask(`Disconnect the ${PNAME[p]} ${p==='slack'?'app':'bot'}? ${p==='discord'?'The channel mapping is kept.':'The mapping and allowed people are kept.'}`))return;
+  await PL.del('/api/'+p);S.sheet?.close();PL.toast(`${PNAME[p]} disconnected`);chLoad(true)};
+ACT.dcheck=async()=>{S.ch.d=await api('/api/discord?check=1');S.ch.sig='';PL.render();S.live?.()};
+ACT.dreconnect=async()=>{await post('/api/discord/reconnect');PL.toast('Reconnecting…');setTimeout(()=>chLoad().catch(()=>{}),2000)};
+// Invited in another tab, or back from the Developer Portal: look again when this tab gets focus.
+window.addEventListener('focus',()=>{if(PL.route.page==='setup'&&S.sec==='channels'&&S.ch.d?.configured)chLoad(true).then(()=>ACT.dcheck()).catch(()=>{})});
+
+// ---- Settings ----------------------------------------------------------------------------------------------------
+// Switches apply at once, with Undo; every other value opens a sheet of its own. There's no Save for the page.
+const SETS=[
+  ['Waking and delivery',[{k:'auto_wake_idle',t:'Wake idle agents when a message arrives',type:'bool'},{k:'inject_while_busy',t:'Deliver into a running turn',type:'bool'},
+    {k:'wake_for',t:'Wake an idle agent for',type:'choice',opts:[['needed','Questions, tasks, your messages and answers','Saves tokens: other messages wait for its next turn','What needs it'],['all','Every message','Each wake-up is a full turn that re-reads its context','Every message']]},
+    {k:'wake_delay_s',t:'Wait before waking for another agent’s message',type:'num',unit:'s',min:0,max:120,hint:'Messages that arrive together then share one turn. Your own messages never wait.'}]],
+  ['Context and usage',[{k:'clear_between_tasks',t:'Clear context after each task',sub:'Agents save notes to memory first',type:'bool'},
+    {k:'task_nudge_h',t:'Ask a task’s owner where it stands after',type:'num',unit:'h',zero:'Never',min:0,step:12,hint:'Hours without an update. 0 for never.'},
+    {k:'clear_nudge_tokens',t:'Ask an agent to save and clear past',type:'num',unit:'tokens',zero:'Never',min:0,step:50000,hint:'A large context is re-read on every turn and drains the usage limit fast. The ask arrives with its next prompt, so it clears at a stopping point. 0 for never.'}]],
+  ['Approvals',[{k:'auto_approve_all',t:'Agents start agents and schedules without asking',sub:'You’re still told on Discord. To allow only some agents, leave this off and turn it on on an agent’s page.',type:'bool'},
+    {k:'ask_defaults',t:'A question may name a default',sub:'What the agent goes with when you don’t answer in time; a later answer still wins',type:'bool'},
+    {k:'ask_default_min_m',t:'Shortest wait an agent may give you',type:'num',unit:'min',min:0,step:5}]],
+  ['What agents see',[{k:'roster_in_prompt',t:'Show each agent the live agent list when it changes',type:'bool'},{k:'auto_summary',t:'Keep agent summaries current',type:'bool'},
+    {k:'summary_model',t:'Summary model',type:'text'},
+    {k:'feedback',t:'Agents report bugs and ideas about peerlink',sub:'For people developing peerlink. Agents started after a change get the report_issue tool, or lose it.',type:'bool'}]],
+  ['Guidance',[{k:'guidance',t:'What every agent is told about working with its peers',type:'long'}]],
+  ['Limits and timing',[{k:'poll_interval_ms',t:'Poll interval',unit:'ms',type:'num',min:500},{k:'peer_ttl_s',t:'Agent timeout',unit:'s',type:'num',min:5},
+    {k:'max_hops',t:'Max reply hops',type:'num',min:1},{k:'rate_limit_per_min',t:'Messages per minute per agent',type:'num',min:1}]],
+  ['Other machines',[{k:'remotes',t:'Their daemons',type:'list',hint:'One URL per line.'},{k:'listen_host',t:'Listen host',type:'text',hint:'0.0.0.0 accepts other machines. Needs a restart.'},
+    {k:'token',t:'Shared token',type:'secret'},{k:'local_name',t:'This machine’s web UI name',type:'text',hint:'Like peerlink.local; empty is off. Needs a restart.'}]]];
+const SETK=Object.fromEntries(SETS.flatMap(([,l])=>l.map(s=>[s.k,s])));
+function setVal(s,v){if(s.type==='choice'){const o=s.opts.find(o=>o[0]===v);return esc(o?o[3]||o[1]:v)}
+  if(s.type==='num')return v===0&&s.zero?s.zero:esc(fmtNum(v??0)+(s.unit?' '+s.unit:''));
+  if(s.type==='secret')return v?'Set':'<span class="mut">Not set</span>';
+  if(s.type==='list')return (v||[]).length?esc(plural(v.length,'machine')):'<span class="mut">None</span>';
+  if(s.type==='long')return v?'Your own':'Default';
+  return v?esc(v):'<span class="mut">Not set</span>'}
+const setRow=s=>{const v=C()[s.k];if(s.type==='bool')return togRow({tog:'cfg',arg:s.k,on:v,title:esc(s.t),sub:esc(s.sub||'')});
+  return row({act:'set',arg:s.k,title:esc(s.t),sub:s.type==='long'?esc(v?PL.plain(v).slice(0,90)+(v.length>90?'…':''):'Empty: agents get the default'):s.type==='list'&&(v||[]).length?esc(v.join(', ')):'',value:setVal(s,v)})};
+// Desktop alerts belong to this browser, not the daemon: the same permission and preference the shell reads to alert.
+// (Phase 2: the shell's [data-notify] handler does the same; one of the two should go.)
+const alertsRow=()=>{const has=!!window.Notification,blocked=has&&Notification.permission==='denied';
+  return togRow({tog:'alerts',on:PL.notifyOn(),title:'Desktop alerts',sub:!has?'This browser has no desktop notifications':blocked?'Blocked for this page: allow them in the browser’s site settings':'A notification for each new Inbox item while this tab is in the background'})};
+function renderSettings(){PL.paint($('#su-settings'),`<div class="su-cards">${SETS.map(([g,l])=>card(g,l.map(setRow).join(''))).join('')}${card('This browser',alertsRow())}</div>`)}
+async function setCfg(k,v){const r=await PL.put('/api/config',{[k]:v});if(r.error){PL.toast(r.error,{kind:'bad'});return false}PL.setCfg(r);return true}
+TOG.cfg=async(k,on)=>{return await setCfg(k,on)&&!!PL.toast(`${(SETK[k]||{}).t||k}: ${on?'on':'off'}`,{undo:()=>setCfg(k,!on)})};
+TOG.alerts=async(_,on,quiet)=>{
+  if(on){if(!window.Notification){tell('This browser has no desktop notifications.');return false}
+    if(await Notification.requestPermission()!=='granted'){tell('Notifications are blocked for this page. Allow them in the browser’s site settings.');return false}
+    PL.keep('notify','1')}else PL.keep('notify','');
+  PL.render();if(!quiet)PL.toast(`Desktop alerts ${on?'on':'off'}`,{undo:()=>TOG.alerts(_,!on,true)});return true};
+ACT.set=k=>{const s=SETK[k],v=C()[k];let input;
+  if(s.type==='num')input=field(s.t+(s.unit?` (${s.unit})`:''),`<input type="number" name="v" value="${esc(v??0)}"${s.min!=null?` min="${s.min}"`:''}${s.max!=null?` max="${s.max}"`:''}${s.step?` step="${s.step}"`:''} required>`,esc(s.hint||''));
+  else if(s.type==='choice')input=`<fieldset class="su-radios"><legend class="su-sr">${esc(s.t)}</legend>${s.opts.map(([o,t,h])=>`<label class="su-radio"><input type="radio" name="v" value="${o}"${o===v?' checked':''}><span><b>${esc(t)}</b>${h?`<span class="hint">${esc(h)}</span>`:''}</span></label>`).join('')}</fieldset>`;
+  else if(s.type==='long')input=field(s.t,`<textarea name="v" class="su-guide" placeholder="${esc(C().default_guidance||'')}">${esc(v||'')}</textarea>`,'Leave it empty to use the default, shown in grey.');
+  else if(s.type==='list')input=field(s.t,`<textarea name="v" rows="4" placeholder="http://other-machine.local:7899">${esc((v||[]).join('\n'))}</textarea>`,esc(s.hint||''));
+  else input=field(s.t,`<input type="${s.type==='secret'?'password':'text'}" name="v" value="${esc(v??'')}" autocomplete="off" spellcheck="false">`,esc(s.hint||''));
+  sheet({title:s.t.length>40?SETS.find(([,l])=>l.includes(s))[0]:s.t,wide:s.type==='long',body:input,onSave:async f=>{const raw=f.querySelector('[name=v]:checked')?.value??f.elements.v.value;
+    const nv=s.type==='num'?Number(raw):s.type==='list'?String(raw).split('\n').map(x=>x.trim()).filter(Boolean):raw;
+    if(JSON.stringify(nv)===JSON.stringify(v??(s.type==='list'?[]:'')))return;
+    const r=await PL.put('/api/config',{[k]:nv});if(r.error)return r.error;PL.setCfg(r);
+    PL.toast(`${s.t.length>40?'Saved':s.t+' saved'}`,{undo:()=>setCfg(k,v)})}})};
+
+// ---- Controls ----------------------------------------------------------------------------------------------------
+function renderControls(st){const s=st.status;
+  PL.paint($('#su-controls'),`<div class="su-cards">${card('This daemon',row({icon:'controls',title:'Daemon',sub:esc(`${s.host} · port ${s.port}`),value:`<span class="mono">${esc(s.version)}</span>`})
+    +row({tile:KEYICON,title:'Key',sub:'Agents and sign-in links use it',value:`<span class="mono su-ell">${esc(keyPath(st))}</span>`})
+    +row({icon:'agents',title:'Browsers',sub:'Sign-in links work once and expire after 60 s',value:esc(s.browsers+' signed in')})
+    +row({act:'logout',tile:OUTICON,title:'Sign out of this browser',sub:'Run /peerlink web in any agent to sign in again',chev:false}))}
+    ${card('Careful',row({act:'restart',icon:'controls',title:'Restart the daemon',sub:'Agents reconnect by themselves. Queued messages are kept.',chev:false,cls:'su-danger'})
+      +row({act:'logoutall',icon:'agents',title:'Sign out every browser',sub:'This one included',chev:false,cls:'su-danger'})
+      +row({act:'rotate',tile:KEYICON,title:'Rotate the key',sub:'Signs out every browser; agents pick up the new key by themselves',chev:false,cls:'su-danger'})
+      +row({act:'clean',tile:TRASHICON,title:'Start clean',sub:'Clear spaces, offline agents, history, tasks or schedules. Backed up first.',cls:'su-danger'}))}</div>`)}
+const OUTICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>';
+const TRASHICON='<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
+ACT.logout=async()=>{await post('/api/web/logout');location.reload()};
+ACT.logoutall=async()=>{if(!await ask('Sign out every browser, including this one?'))return;await post('/api/web/logout',{all:true});location.reload()};
+ACT.rotate=async()=>{if(!await ask('Rotate the key? Every browser is signed out; agents pick up the new key by themselves.'))return;await post('/api/key/rotate');location.reload()};
+ACT.restart=async()=>{if(!await ask('Restart the peerlink daemon? Agents reconnect by themselves, and queued messages are kept.',{ok:'Restart'}))return;
+  await post('/api/restart');PL.toast('Restarting…');setTimeout(()=>location.reload(),2500)};
+const CLEAN=[['spaces','Spaces, leads and links'],['agents','Offline agents'],['history','Message history'],['tasks','Tasks'],['schedules','Schedules']];
+ACT.clean=()=>sheet({title:'Start clean',danger:true,saveLabel:'Clear',body:`<p class="hint">Clear what you tick. Rules, settings, chat channels, outside clients and the key stay. Running agents stay, and the files are copied to a backup first.</p>
+  <fieldset class="su-checks"><legend>Clear</legend>${CLEAN.map(([k,t])=>`<label class="check"><input type="checkbox" name="part" value="${k}"> ${esc(t)}</label>`).join('')}</fieldset>`,
+  onSave:async f=>{const parts=[...f.querySelectorAll('[name=part]:checked')].map(c=>c.value);if(!parts.length)return 'Tick what to clear first.';
+    if(!await ask(`Clear ${parts.map(p=>CLEAN.find(c=>c[0]===p)[1].toLowerCase()).join(', ')}? Rules and running agents stay; the files are backed up first.`,{ok:'Clear'}))return false;
+    const r=await post('/api/clean',{parts});if(r.error)return 'Not cleared: '+r.error;
+    tell('Cleared '+Object.entries(r.cleared).map(([k,v])=>`${k} (${v})`).join(', ')+'. Backup: '+r.backup);refresh(true)}});
+
+// ---- Feedback ----------------------------------------------------------------------------------------------------
+const FBST=[['needs','Needs you'],['new','New'],['accepted','Accepted'],['done','Done'],['dismissed','Dismissed'],['all','All']];
+const FBNAME={new:'New',accepted:'Accepted',done:'Done',dismissed:'Dismissed'},FBBADGE={new:'warn',accepted:'info',done:'ok',dismissed:'mut'};
+function renderFeedback(st){const all=st.issues,f=S.fb,ty=x=>!f.ty||x.type===f.ty;
+  const inSt=(x,s)=>s==='all'||(s==='needs'?x.status==='new'||x.status==='accepted':x.status===s);
+  const shown=all.filter(x=>ty(x)&&inSt(x,f.st)).sort((a,b)=>b.ts-a.ts);
+  const one=x=>{const task=st.tasks.find(t=>t.id===x.task);let [h,...rest]=String(x.text).split('\n');
+    // A long first line is cut to a headline; the rest of it reads below.
+    if(h.length>120){const cut=h.lastIndexOf(' ',120)>60?h.lastIndexOf(' ',120):120;rest=[h.slice(cut).trim(),...rest];h=h.slice(0,cut)+'…'}
+    const b=(s,label,cls='btn-soft')=>`<button type="button" class="btn ${cls} sm" data-su="fbset" data-arg="${esc(x.id)}" data-s="${s}">${label}</button>`;
+    const acts=x.status==='new'?b('accepted','Accept','btn-solid')+b('dismissed','Dismiss'):x.status==='accepted'?b('done','Done','btn-solid')+b('dismissed','Dismiss'):b('new','Back to new');
+    return `<article class="card su-fb"><div class="su-meta">${PL.badge(x.type==='bug'?'bad':'acc',x.type==='bug'?'Bug':'Idea')}${PL.badge(FBBADGE[x.status]||'mut',FBNAME[x.status]||x.status)}<span>${esc(x.id)} · ${PL.ago(x.ts)} ago</span></div>
+      <p class="su-fb-t">${esc(h)}</p>${rest.join('\n').trim()?`<div class="md su-fb-b">${md(rest.join('\n').trim())}</div>`:''}
+      <p class="small mut su-fb-m">from ${PL.agentLink(x.from_name||'an agent')}${x.space?' · '+esc(x.space):''} · plugin ${esc(x.plugin||'?')}, daemon ${esc(x.daemon||'?')}${task?` · task ${PL.taskLink(task.id)} ${esc(TSTATE[task.status]||task.status)} with ${PL.agentLink(task.owner)}`:''}</p>
+      ${x.note?`<div class="su-note"><span class="label">Your note</span>${esc(x.note)}</div>`:''}
+      <div class="su-acts">${acts}<button type="button" class="btn btn-ghost sm" data-su="fbnote" data-arg="${esc(x.id)}">${x.note?'Edit note':'Add a note'}</button></div></article>`};
+  const cnt=s=>all.filter(x=>ty(x)&&inSt(x,s)).length;
+  const bar=`<div class="su-fbbar"><div class="chips" role="group" aria-label="Status">${FBST.map(([k,t])=>`<button type="button" class="chip" aria-pressed="${f.st===k}" data-su="fbst" data-arg="${k}">${t}<span class="su-n">${cnt(k)}</span></button>`).join('')}</div>
+    <div class="seg" role="group" aria-label="Type">${[['','All'],['bug','Bugs'],['idea','Ideas']].map(([k,t])=>`<button type="button" class="${f.ty===k?'on':''}" aria-pressed="${f.ty===k}" data-su="fbty" data-arg="${k}">${t}</button>`).join('')}</div></div>`;
+  const groups=f.st==='needs'||f.st==='all'?Object.keys(FBNAME).filter(s=>inSt({status:s},f.st)).map(s=>{const l=shown.filter(x=>x.status===s);return l.length?PL.label(`${FBNAME[s]} · ${l.length}`)+`<div class="su-stack">${l.map(one).join('')}</div>`:''}).join('')
+    :`<div class="su-stack">${shown.map(one).join('')}</div>`;
+  PL.paint($('#su-feedback'),bar+(shown.length?groups:PL.empty({icon:'feedback',title:all.length?'Nothing here':'No feedback yet',text:all.length?'Nothing matches these filters.':'Agents report bugs and ideas about peerlink here, when Settings lets them.',action:all.length&&f.st!=='all'?{label:'Show all',attrs:'data-su="fbst" data-arg="all"'}:null})))}
+ACT.fbst=k=>{S.fb.st=k;PL.keep('setup.fbst',k);PL.render()};
+ACT.fbty=k=>{S.fb.ty=k;PL.keep('setup.fbty',k);PL.render()};
+ACT.fbset=async(id,b)=>{const x=PL.state.issues.find(i=>i.id===id),was=x?.status,s=b.dataset.s;b.disabled=true;
+  const r=await post('/api/issues/'+enc(id),{status:s});b.disabled=false;if(r.error)return tell(r.error);await refresh(true);
+  // Accepting hands it to the peerlink agent as a task, which can't be taken back; the rest can.
+  if(s==='accepted')PL.toast(`${id} accepted: task ${r.feedback?.task||''} for the peerlink agent`);
+  else PL.toast(`${id} ${s==='new'?'back to new':s==='done'?'done':'dismissed'}`,{undo:async()=>{await post('/api/issues/'+enc(id),{status:was});refresh(true)}})};
+ACT.fbnote=id=>{const x=PL.state.issues.find(i=>i.id===id);if(!x)return;
+  sheet({title:`Note on ${id}`,body:field('Note',`<textarea name="note" rows="4" placeholder="What you decided, or what to look at">${esc(x.note||'')}</textarea>`,x.status==='new'?'Accepting it later sends the note with the task.':''),
+    onSave:async f=>{if(f.elements.note.value.trim()===(x.note||''))return;const r=await post('/api/issues/'+enc(id),{note:f.elements.note.value});if(r.error)return r.error;PL.toast('Note saved');refresh(true)}})};
+
+// ---- Help: one ? per section, in a sheet --------------------------------------------------------------------------
+const HELP={
+  '':`<p>Setup is what you set up once and rarely visit. Each card shows what’s set now; open one to change it.</p><p>The gear’s number counts what waits on you here: rule proposals and new feedback.</p>`,
+  spaces:`<p>An agent only sees and messages agents in its own space. Put an agent in a space from its page on Agents; a folder you haven’t placed takes the space in the nearest <span class="mono">.peerlink</span> file at or above it, else it’s <b>unassigned</b>.</p>
+    <p>Work sent to a space goes to its <b>lead</b>: the agent you pick here, or else the one that was alone in it. The lead decides who does it.</p>
+    <p>A space can sit <b>inside</b> another. Its lead then sits with that space’s agents and speaks for it there; a rule for the outer space reaches it too.</p>
+    <p>Deleting a space drops every setting that names it. Its agents go back to their <span class="mono">.peerlink</span> space or unassigned.</p>`,
+  rules:`<p>A rule is something you’ve told your agents for good. It reaches every agent in its space and the spaces inside it, in its instructions, so a cleared context still has it.</p>
+    <p>An agent can propose one for its own space: it waits here, and in your Inbox, until you approve it. Turn a rule off to stop it for a while without losing it.</p>`,
+  channels:`<p>Talk to your agents from outside the terminal. Each platform’s row opens its setup; once it’s connected, map its channels to agents.</p>
+    <p>On a mapping, agents that <b>receive</b> get your messages there and agents that <b>send</b> post their messages there. To reach one agent, reply to its post or start with its name and a colon: <span class="mono">storefront: how’s the build?</span></p>
+    <p>Start a post with <span class="mono">Task:</span> to hand it over as a task, or <span class="mono">Announcement:</span> to tell the receiving agent’s whole space. If an agent isn’t running, your message waits up to an hour for it. Agents can message you first, labelled with their name.</p>
+    <p>A reaction on your message shows its progress:</p><div class="su-legend"><span>👀</span><span>delivered to the agent</span><span>🤔</span><span>thinking</span><span>🛠️</span><span>using tools</span><span>❓</span><span>asked you something</span><span>✅</span><span>answered</span></div>`,
+  settings:`<p>Settings are the daemon’s, for every agent; a change reaches them within a few seconds. Switches apply at once, with Undo. Other values open a sheet.</p>
+    <p>Each wake-up is a full turn that re-reads the agent’s context, so waking for every message, and a large context, cost usage. <b>Desktop alerts</b> is this browser’s alone.</p>`,
+  controls:`<p>The daemon runs on this machine and keeps every agent, message and task. Restarting it is safe: agents reconnect by themselves.</p>
+    <p>The key in peerlink’s folder signs agents and sign-in links. Rotating it signs out every browser. <b>Start clean</b> backs up the files it clears.</p>`,
+  feedback:`<p>Agents report bugs and ideas about peerlink itself here, when <b>Settings › What agents see</b> lets them.</p>
+    <p><b>Accept</b> hands one to the peerlink agent as a task, with your note. Mark it <b>Done</b> when it’s fixed or built, or <b>Dismiss</b> it.</p>`};
+ACT.help=sec=>sheet({title:sec?`How ${SECS.find(x=>x[0]===sec)[1].toLowerCase()} work`:'About Setup',body:`<div class="su-help-b">${HELP[sec]||''}</div>`});
+
+// ---- Events ------------------------------------------------------------------------------------------------------
+document.addEventListener('click',e=>{const b=e.target.closest('[data-su]');
+  if(b&&ACT[b.dataset.su]&&!b.disabled){e.preventDefault();Promise.resolve(ACT[b.dataset.su](b.dataset.arg,b)).catch(x=>PL.toast(String(x.message||x),{kind:'bad'}));return}
+  const t=e.target.closest('[data-su-tog]');if(!t||e.target.closest('a,[data-su]'))return;
+  const s=t.matches('.su-sw')?t:t.querySelector('.su-sw');if(!s||s.disabled||t.classList.contains('busy'))return;
+  const on=s.getAttribute('aria-checked')!=='true';s.setAttribute('aria-checked',String(on));t.classList.add('busy');
+  Promise.resolve(TOG[t.dataset.suTog]?.(t.dataset.arg,on)).catch(x=>PL.toast(String(x.message||x),{kind:'bad'})).finally(()=>{t.classList.remove('busy');PL.render()})});
+document.addEventListener('change',e=>{const t=e.target.closest?.('[data-su-pick]');if(t&&PICK[t.dataset.suPick])PICK[t.dataset.suPick](t.dataset.arg,t)});
+
+// Rules: every 5 s on Rules, 15 s on the overview, every minute elsewhere (for the gear's count). Channels: every
+// 5 s on Channels, 20 s on the overview, for the platforms' state and anyone waiting.
+loadRules().catch(()=>{});
+setInterval(()=>{if(document.hidden)return;const on=PL.route.page==='setup',sec=on?S.sec:null,now=Date.now();
+  if(now-S.rulesAt>(sec==='rules'?4000:sec===''?15000:60000))loadRules().catch(()=>{});
+  if(sec==='channels'||(sec===''&&now-S.ch.at>20000))chLoad().catch(()=>{})},5000);
+})();
