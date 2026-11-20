@@ -7082,7 +7082,7 @@ def cli_help():
 
 
 MANIFEST = {"name": "Peerlink", "short_name": "Peerlink", "start_url": "/", "display": "standalone",
-            "background_color": "#faf9f7", "theme_color": "#c96442",
+            "background_color": "#f5f5f4", "theme_color": "#059669",
             "icons": [{"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
                       {"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"}]}
 
@@ -7090,11 +7090,11 @@ MANIFEST = {"name": "Peerlink", "short_name": "Peerlink", "start_url": "/", "dis
 
 
 PAGE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Peerlink</title><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23c96442'/><path d='M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/></svg>"><style>
-:root{--bg:#faf9f7;--fg:#1f1e1c;--mut:#6b6862;--line:#e4e1db}
-@media (prefers-color-scheme:dark){:root{--bg:#1c1b19;--fg:#ecebe8;--mut:#9b978f;--line:#34322e}}
+<title>Peerlink</title><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23059669'/><path d='M7 11.5h17M19.5 7l4.5 4.5-4.5 4.5M25 20.5H8M12.5 16 8 20.5l4.5 4.5' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/></svg>"><style>
+:root{--bg:#f5f5f4;--fg:#1c1917;--mut:#78716c;--line:#e7e5e4}
+@media (prefers-color-scheme:dark){:root{--bg:#141210;--fg:#f5f5f4;--mut:#a8a29e;--line:#33302c}}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif}
-main{max-width:520px;margin:15vh auto;padding:0 16px}h1{font-size:20px}p{color:var(--mut)}
+main{max-width:520px;margin:15vh auto;padding:0 16px}h1{font-size:20px;letter-spacing:-.02em}p{color:var(--mut)}
 code{font-family:ui-monospace,Menlo,monospace;font-size:13px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--fg)}
 </style></head><body><main><h1>{title}</h1><p>{text}</p></main></body></html>"""
 
