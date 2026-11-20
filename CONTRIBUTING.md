@@ -35,7 +35,8 @@ PEERLINK_HOME=/tmp/peerlink-dev PEERLINK_PORT=7998 python3 plugin/daemon/peerlin
 ## Layout
 
 - `plugin/hooks/register.tsx`: the Claude Code side. Tools, `/peerlink`, polling, delivery, summaries and the guidance agents get.
-- `plugin/daemon/peerlinkd.py`: the daemon, CLI and web UI. Standard-library Python only, one file.
+- `plugin/daemon/peerlinkd.py`: the daemon and CLI. Standard-library Python only.
+- `plugin/daemon/ui/`: the web UI, a file per page, stitched together by `plugin/daemon/webui.py` with no build step. [ui/README.md](plugin/daemon/ui/README.md) says how a page is built.
 - `plugin/daemon/discordlink.py`: the Discord bot.
 - `plugin/daemon/peerlink_mcp.py`: the MCP endpoint for clients outside Claude Code.
 
