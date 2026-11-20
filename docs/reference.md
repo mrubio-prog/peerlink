@@ -25,7 +25,7 @@ Agents treat each other as teammates. Each one knows who else is live and what t
 ## How agents know about each other
 
 - **Names.** An agent is named after its folder, such as `web` or `billing-api`. A suffix is added only when two live agents share a folder name. You can rename an agent with `/peerlink-agent name <name>`. Renaming one in the web UI names its folder too, so the next agent there takes the name, but not while other agents are live in that folder: then the folder keeps its name, and a chat channel mapped to the folder still reaches the agent going by it.
-- **Roles.** Put `role:` lines in the `.peerlink` of an agent's own folder to say what it's there for. That's the role of every agent opened there. To give one agent a role of its own, set it on the Details tab of its panel in the web UI: it applies to that agent only (kept across `/clear` and resume), and leaving it empty goes back to the folder's. The agent gets the role as its brief from its first turn, and peers see it in `list_peers` and beside the prompt, so nobody has to wait for a summary. A role describes only the agent in that folder, not those in folders below it. A `.peerlink` with only a role doesn't change the agent's space.
+- **Roles.** Put `role:` lines in the `.peerlink` of an agent's own folder to say what it's there for. That's the role of every agent opened there. To give one agent a role of its own, open it on the web UI's Agents page and set it under **Role**: it applies to that agent only (kept across `/clear` and resume), and leaving it empty goes back to the folder's. The agent gets the role as its brief from its first turn, and peers see it in `list_peers` and beside the prompt, so nobody has to wait for a summary. A role describes only the agent in that folder, not those in folders below it. A `.peerlink` with only a role doesn't change the agent's space.
 
   ```
   # ~/Repos/acme/auth/.peerlink
@@ -56,17 +56,17 @@ An agent's space belongs to its folder, so every agent opened there is in it, ac
    Commit it, and the space travels with the repo. It only places folders you haven't put in a space yourself.
 3. Otherwise the agent is **unassigned** (the `default` space).
 
-**Also in other spaces.** Rarely needed: under **Also in other spaces** on the Details tab, you can make an agent a member of more spaces on top of its own. It sees and messages their agents, and they see it. On the Agents page it stays in its own space, with a badge for each extra one, such as `+acme`. It's kept for its folder (`space_members` in the config). Only you can set it, in the web UI: an agent can't add itself to a space.
+**Also in other spaces.** Rarely needed: under **Also a member of** in an agent's **Space** sheet (its page on Agents), you can make an agent a member of more spaces on top of its own. It sees and messages their agents, and they see it. On the Agents page it stays in its own space, with a badge for each extra one, such as `+acme`. It's kept for its folder (`space_members` in the config). Only you can set it, in the web UI: an agent can't add itself to a space.
 
-**Linked agents.** To let two agents talk without changing anyone's space, open one on the Agents page and list the other under **Linked with other agents** on its Details tab. The two then see each other in `list_peers` and message each other, whatever spaces they're in, and both are told. Nobody else's reach changes, and announcements still go by space. A link is kept for the agents (`agent_links` in the config), so it lasts through `/clear` and restarts. It works between agents on this machine. On the Agents page each shows a badge such as `↔core`. Only you can set links, in the web UI.
+**Linked agents.** To let two agents talk without changing anyone's space, open one on the Agents page and list the other under **Linked with** in its **Space** sheet. The two then see each other in `list_peers` and message each other, whatever spaces they're in, and both are told. Nobody else's reach changes, and announcements still go by space. A link is kept for the agents (`agent_links` in the config), so it lasts through `/clear` and restarts. It works between agents on this machine. On the Agents page each shows a badge such as `↔core`. Only you can set links, in the web UI.
 
-**Deleting a space.** Press **Delete space** in its box on the Spaces page. Every setting that names it goes: its folders and agents fall back to their `.peerlink` space, else unassigned, its lead is cleared, and spaces inside it move to the top. A running agent whose `.peerlink` still names the space stays in it, and you're told which folders those are.
+**Deleting a space.** Open it with **Edit** on Setup › Spaces and press **Delete**. Every setting that names it goes: its folders and agents fall back to their `.peerlink` space, else unassigned, its lead is cleared, and spaces inside it move to the top. A running agent whose `.peerlink` still names the space stays in it, and you're told which folders those are.
 
 Space names are lowercased. Linked daemons on other machines only connect agents whose spaces have the same name.
 
 ### Spaces inside spaces
 
-A space can sit inside another one. Set it on the **Spaces** page, where each space's box has **Inside** and **Lead** pickers, or run `/peerlink-spaces parent <name>` in one of its agents. A `parent:` line in a `.peerlink` does the same for a space you haven't placed there:
+A space can sit inside another one. Set it on Setup › **Spaces**, where each space's **Edit** sheet has **Sits inside** and **Lead** pickers, or run `/peerlink-spaces parent <name>` in one of its agents. A `parent:` line in a `.peerlink` does the same for a space you haven't placed there:
 
 ```
 # ~/Repos/acme/storefront/.peerlink
@@ -77,19 +77,19 @@ parent: acme
 - **The lead** of `storefront` is in both spaces: it sees the agents in `storefront` and the agents in `acme`, and speaks for its space there.
 - **Members**, such as agents in `storefront/client` and `storefront/server`, see only `storefront`. Agents in `acme` see the lead but not the members. The daemon enforces this.
 - **Guidance follows the shape.** The lead is told to delegate work from the parent to the agent in its space that owns it, and to report the outcome back. Members are told to report to the lead. A parent's agents are told to hand the lead an outcome, not instructions for each agent.
-- In the peer list a lead shows as `storefront [leads storefront]`. On the web UI's Agents page each space is a box: a lead sits in its parent's box, with its own space beneath it. Top-level spaces sit side by side across the window. The page opens in **List**, the same tree as nested rows, one per agent. Switch to **Chart** for the org chart, and each browser remembers your choice. `/peerlink-spaces` prints the same chart in the terminal.
+- In the peer list a lead shows as `storefront [leads storefront]`. On the web UI's Agents page the list shows each space with its lead first and its members indented under it; a space inside another sits under that space's lead. Switch to **Chart** for the org chart, where each space is a box with its lead on top and the spaces inside it hanging beneath; each browser remembers your choice. `/peerlink-spaces` prints the same chart in the terminal.
 
-Spaces can nest to any depth; the Spaces page refuses a loop.
+Spaces can nest to any depth; Setup › Spaces refuses a loop.
 
 ### Space leads
 
 Any named space can have a lead, nested or not. Work sent to the space, with `send_message` to `space:<name>` (or `space` for an agent's own space), goes to the lead. The lead decides who owns the work and delegates it.
 
-- **An agent alone in a space leads it.** In the web UI its Lead badge is dashed, and hovering it says "Lead (only agent)". It stays lead when other agents join, so work sent to the space doesn't move around, until you pick another lead. The `default` space has no lead.
-- **You pick a lead in the web UI,** with the **Lead** picker on the Spaces page, or **Make lead** on an agent's Controls tab. Only you can do this, from the browser: an agent or bot holding the key is refused. A lead you pick wins over one that was alone. The old lead and the new one are both told.
+- **An agent alone in a space leads it.** In the web UI its badge reads **Lead · only agent**. It stays lead when other agents join, so work sent to the space doesn't move around, until you pick another lead. The `default` space has no lead.
+- **You pick a lead in the web UI,** with the **Lead** picker in a space's sheet on Setup › Spaces, or **Make lead** in an agent's **Space** sheet. Only you can do this, from the browser: an agent or bot holding the key is refused. A lead you pick wins over one that was alone. The old lead and the new one are both told.
 - **The lead belongs to a folder,** so it survives `/clear` and restarts. While it's offline it stays pinned at the top of its space, greyed. Work sent to the space waits for the next agent in that folder.
 - On the Agents page the lead is pinned at the top of its space with a Lead badge, and its members are indented beneath it. A nested space hangs under its lead. Peers see the lead as `name [leads <space>]`.
-- Each card and agent panel shows the agent's git branch: the branch name, plus the worktree's name in a linked worktree, or `detached @ <sha>`. It's re-read every 10 seconds, so a branch switch shows up. Folders that aren't git repos show none.
+- Each agent's page, and its box on the chart, shows its git branch: the branch name, plus the worktree's name in a linked worktree, or `detached @ <sha>`. It's re-read every 10 seconds, so a branch switch shows up. Folders that aren't git repos show none.
 
 ## What you see in the chat
 
@@ -99,7 +99,7 @@ Every message between agents shows up in both chats.
 - **A message that wakes an idle agent** starts a turn and shows as a prompt from the peerlink plugin: `↘ web · m3 · reply expected`, then the text.
 - **A message that arrives mid-turn** is passed to the model straight away. It also shows in the chat as a line, `peerlink: ↘ web · m3: …`, which the model doesn't read again, plus a toast. If it wants a reply and the turn ends without one, it's put to the agent again, once, as a turn of its own, marked `unanswered from your last turn`: a message that lands mid-task is easy to read past.
 - **A message that arrives while wake is off** shows once as a line and a toast, and is read with your next prompt.
-- **Agents on older plugin code** are flagged: the web UI shows a banner naming them and marks each one "reload needed", and `peerlink peers` says `run /reload-plugins`. They keep working meanwhile.
+- **Agents on older plugin code** are flagged: the web UI shows a banner naming them, and each one's page says to run `/reload-plugins` in it, and `peerlink peers` says `run /reload-plugins`. They keep working meanwhile.
 - **The daemon** gets a line at each session start, giving the plugin version, the daemon version and this agent's space. Starting or replacing the daemon shows as a line and a toast, such as `replaced daemon 0.6.1 → 0.6.2`. The status line ends with the daemon version.
 
 ## Tasks
@@ -109,25 +109,26 @@ A message asks for something, and a reply is optional. A task is a piece of work
 - **Handing one out:** `send_message` with `kind: "task"`, or a Discord post that starts with `Task:` (a trusted bot's too). A task sent to a lead is the lead's to split up: it hands parts on with `parent_task`, and they show under the task they belong to.
 - **Working on one:** the task arrives as `peerlink ↘ lead · m7 · task t3` and shows as in progress once its owner has it. The owner finishes with `update_task`, done or failed plus a short note, and whoever asked gets that note. On Discord it's a reply under your post, with a ✅ or ❌ reaction. Any failed task is also posted to Discord.
 - **Nothing gets lost:** a task belongs to its owner's folder, so it outlives `/clear`, compaction and restarts. Each agent's open tasks, and the tasks it's waiting on, are added to its context at every turn.
-- **In the web UI:** **+ New task** sends a task from you to an agent, or to a space's lead. The **Tasks** page is a board with Open, In progress, Done and Failed columns. Cancelled is a collapsed column. Each card shows the title, owner, requester and age, and a parent task shows how many of its subtasks are done. Filter by owner, requester or space, and split the board into rows by space or owner. **List** switches to the list view, and each browser remembers your choice.
+- **In the web UI:** **New task** sends a task from you to an agent, or to a space's lead. The **Tasks** page is a board with Open, In progress, Done and Failed columns; the **Cancelled** chip adds a fifth. Each card shows the title, owner, requester and age, why it's blocked, and for a parent task how many of its subtasks are done. Chips filter by **Mine to answer**, **Blocked** or space; **More filters** has owner, requester and rows by space or owner. **List** groups the tasks by status (a phone always shows the list), and each browser remembers your choice. Click a task to open its sheet: its record, a note to its owner (kept on the record and sent to everyone working under it), **Cancel** or **Reopen**, and hand it to another agent.
   - Drag a card to Cancelled to cancel it, from Done, Failed or Cancelled to Open to reopen it, or onto an agent named above the board to hand it over. Only the owner moves a task to in progress, done or failed, so those columns never take a drop. If the owner changed the task after the board was drawn, the move is refused and nothing changes. Click a card for its note and the same buttons the list has.
-  - Each agent card shows its open tasks, and the agent panel has a Tasks tab with what it owns and what it asked for.
+  - Each agent's row shows its open tasks, and its page lists what it owns and what it asked for.
 
 Tasks are saved in `~/.peerlink/tasks.json`.
 
 ## Your Inbox
 
-Some things only you can do: a login, an approval, a decision. An agent sends them to `"user"` (or your login name): `kind: "task"` for something to do, `expects_reply` for a question. A task to `"discord"` is yours too. Everything waiting on you is collected on the **Inbox** page of the web UI, longest waiting first. The menu and the browser tab count the items, and **Desktop alerts** notifies you of new ones while the page is in the background:
+Some things only you can do: a login, an approval, a decision. An agent sends them to `"user"` (or your login name): `kind: "task"` for something to do, `expects_reply` for a question. A task to `"discord"` is yours too. Everything waiting on you is collected on the **Inbox** page of the web UI, longest waiting first. The Inbox tab and the browser tab count the items, and **Desktop alerts** (Setup › Settings) notifies you of new ones while the page is in the background. Each item is answered in place, and what can be taken back has **Undo**:
 
 - **Tasks for you:** each has Done and Couldn't do it, with an optional note. The agent that asked gets the note.
 - **Questions agents are waiting on:** answer in the box, or dismiss. A question you answer on Discord leaves the Inbox by itself.
+- **Approvals:** a new agent (approving asks first, since it starts a Claude Code session), a schedule, or a rule an agent proposed.
 - **New feedback** about peerlink: accept or dismiss it.
 
 On Discord, a task for you is posted with **Done** / **Couldn't do it** buttons. You can also reply to that post with `done`, `done: note` or `failed: why`. Send `/inbox` for the numbered list, then answer by number: `1 done`, `2 failed: no access`, `3 <your answer>`, `4 accept`, `4 dismiss`. Only you can do this, never a bot. Agents can't answer your Inbox for you: the web UI accepts Inbox actions from your browser only.
 
 ## Discord
 
-Talk to your agents from Discord. Open **Channels** in the web UI and follow the three steps:
+Talk to your agents from Discord. Open Setup › **Channels** in the web UI and follow the three steps:
 
 1. **Create the bot and paste its token.** On the Developer Portal: New Application, then Bot, then Reset Token. peerlink asks Discord who the bot is and builds the invite link itself. Optionally turn on **Message Content Intent** so you don't have to @mention it every time; the page notices and offers to reconnect.
 2. **Invite it to your server.** This step completes on its own.
@@ -140,13 +141,13 @@ Talk to your agents from Discord. Open **Channels** in the web UI and follow the
   - `kill`, `mute`, `unmute`, `cancel` (a schedule) and `resume` (a usage-limit hold).
   - Discord shows a bot's commands in every channel of the server, not just the mapped ones. To narrow that, go to Server Settings → Integrations → the bot.
 - **Only the bot's owner can talk to it:** the application's owner, or its team's members. Anyone else is ignored.
-- **Letting someone else in:** list their user ID under "People who can talk to agents" on the Channels page (`"allowed_users"` in `~/.peerlink/discord.json`). They can then message agents and answer buttons as you do, with no developer team needed. Their posts arrive under their own name.
-- **Trusted bots:** posts from other bots are ignored too, unless you list the bot's user ID under "Bots that can post to agents" on the Channels page (`"trusted_bots"` in `~/.peerlink/discord.json`). A voice assistant, for one, can then hand tasks to agents. Its posts arrive as "<name> on Discord". peerlink's own posts are never relayed.
+- **Letting someone else in:** list their user ID under **People, by Discord user id** in the Discord sheet on Setup › Channels (`"allowed_users"` in `~/.peerlink/discord.json`). They can then message agents and answer buttons as you do, with no developer team needed. Their posts arrive under their own name.
+- **Trusted bots:** posts from other bots are ignored too, unless you list the bot's user ID under **Bots that can post to agents** in the Discord sheet on Setup › Channels (`"trusted_bots"` in `~/.peerlink/discord.json`). A voice assistant, for one, can then hand tasks to agents. Its posts arrive as "<name> on Discord". peerlink's own posts are never relayed.
 - **Tasks and announcements:** start a post with `Task:` to hand it to the receiving agent as a task, or `Announcement:` to tell its whole space. (Before 0.8.36 a channel could be limited to one kind; a mapping from then is read as agents that both receive and send.)
 - **Replies come back in the channel** as Discord replies to your message, split under Discord's 2000-character limit. An agent can message you first with `send_message` to `discord`, or `discord#channel` when it's in several; its posts are labelled with its name.
 - **Buttons:** an agent can offer `options` with its message. On Discord they're buttons; your tap goes back to the agent as your answer, and the buttons lock with your pick highlighted. Turned off, they're a numbered list you reply to.
 - **Files:** an agent can attach `files` (absolute paths), which are uploaded. Files you attach on Discord are saved in `~/.peerlink/files/discord/`, and the agent gets their paths. Links in a message work as usual, including `[text](url)`.
-- **The Channels page has a switch for each** (buttons, files from agents, files to agents) and a size limit for files either way, 10 MB by default.
+- **Setup › Channels has a switch for each**, under **What agents can send** (buttons, files from agents, files to agents) and a size limit for files either way, 10 MB by default.
 - **Between agents,** options arrive as a numbered list and files as their paths, since the filesystem is shared.
 - **A reaction on your message shows where it's at:** 👀 delivered, 🤔 thinking, 🛠️ using tools, ❓ asked you something, ✅ answered. It changes only during the turn that handles your message. If that turn ends without a reply to it, the message goes back to 👀.
 - **If the agent isn't running,** the bot says so, and your message waits up to an hour for it.
@@ -156,10 +157,10 @@ It's standard-library Python like the rest of the daemon, with no `py-cord` to i
 
 ## Telegram
 
-Talk to your agents from Telegram, in a private chat with your bot or a group it's in. Open **Channels** in the web UI:
+Talk to your agents from Telegram, in a private chat with your bot or a group it's in. Open Setup › **Channels** in the web UI:
 
 1. **Create the bot and paste its token.** Message [@BotFather](https://t.me/BotFather), send `/newbot`, pick a name and a username, and paste the token it gives you.
-2. **Message it, then allow yourself.** Anyone can find a Telegram bot by name, so peerlink ignores everyone until you allow them. Send your bot any message: you show up on the Channels page under "Wrote to the bot, not allowed yet", with an **Allow** button. A message from someone not allowed gets no answer and reaches no agent. You can also list Telegram user ids by hand.
+2. **Message it, then allow yourself.** Anyone can find a Telegram bot by name, so peerlink ignores everyone until you allow them. Send your bot any message: you show up on Setup › Channels under **Waiting for you**, and in the bot's sheet, with an **Allow** button. A message from someone not allowed gets no answer and reaches no agent. You can also list Telegram user ids by hand.
 3. **Map chats to agents,** under **Channel ⇄ Agent Mappings**, as Discord channels are. Every chat the bot has heard from is listed: your private chat with it, or a group you added it to.
 
 - **In groups,** Telegram shows a bot only commands, @mentions and replies to it. To talk without @mentioning it, send `/setprivacy` to @BotFather, choose Disable, then remove the bot from the group and add it again.
@@ -174,10 +175,10 @@ Talk to your agents from Telegram, in a private chat with your bot or a group it
 
 ## Slack
 
-Talk to your agents from Slack, in a direct message with your app or a channel it's in. Open **Channels** in the web UI:
+Talk to your agents from Slack, in a direct message with your app or a channel it's in. Open Setup › **Channels** in the web UI:
 
-1. **Create the app and paste its two tokens.** The page's button opens Slack with the app's manifest filled in (Socket Mode, the `/peerlink` command, the message events and permissions). Create it in your workspace, then copy two tokens: an **app-level token** (`xapp-…`, made under Basic Information with the scope `connections:write`) and the **bot token** (`xoxb-…`, shown after Install to Workspace).
-2. **Message it, then allow yourself.** Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them. Send the app any message: you show up on the Channels page under "Wrote to the app, not allowed yet", with an Allow button.
+1. **Create the app and paste its two tokens.** The sheet's button opens Slack with the app's manifest filled in (Socket Mode, the `/peerlink` command, the message events and permissions). Create it in your workspace, then copy two tokens: an **app-level token** (`xapp-…`, made under Basic Information with the scope `connections:write`) and the **bot token** (`xoxb-…`, shown after Install to Workspace).
+2. **Message it, then allow yourself.** Everyone in the workspace can message the app, so peerlink ignores everyone until you allow them. Send the app any message: you show up on Setup › Channels under **Waiting for you**, and in the app's sheet, with an **Allow** button.
 3. **Map channels to agents**, under Channel ⇄ Agent Mappings. The app's direct messages and every channel it was invited to (`/invite @peerlink`) are listed.
 
 - **Nothing needs a public URL:** events come over Socket Mode, a websocket the daemon opens to Slack.
@@ -193,7 +194,7 @@ Talk to your agents from Slack, in a direct message with your app or a channel i
 An AI agent that isn't on this machine, any MCP client (Grok, another company's bot), can talk to one of your agents through the **Agents** channel. Each client is a chat of its own, `agents:<name>`, mapped to agents under Channel ⇄ Agent Mappings like any other chat.
 
 - **Two tools, nothing else.** `post_message(text, reply_to?)` posts into the client's chat, so it reaches the agent mapped to receive it. `read_replies(since?, wait_s?)` returns that agent's replies to this client, oldest first, with a `next_since` to pass next time. With `wait_s` (up to 90 s, under Cloudflare's 100 s cutoff), a read that finds nothing new holds the request open until a reply comes or the time is up, so `post_message` then `read_replies(since=<post id>, wait_s=90)` gets the answer in one call. At most 2 reads per client and 10 in all may wait at once; one over that is refused at once and can be retried without `wait_s`. The client gets no peers, no names to send to, no Inbox commands, tasks, announcements, spawns, schedules or rules. Any other tool fails with "unknown tool".
-- **Linked clients.** To let two clients talk straight to each other, list one under **Linked with** on the other's row in the Agents section of the Channels page. Both then get a third tool, `post_to_client(to, text, reply_to?)`. A message sent with it lands in the other client's `read_replies` with `from` set to the sender, and its id is the same on both sides, so either can name it in `reply_to` or `since`. No agent here sees those messages. The posts count against the sender's post limit and are written to the audit log as `relay` lines, without their text. Switch either client off or revoke it and the tool goes away. Only you can set links (`links` in the agents section of discord.json).
+- **Linked clients.** To let two clients talk straight to each other, list one under **Linked with** on the other's entry in the **Outside agents** sheet on Setup › Channels. Both then get a third tool, `post_to_client(to, text, reply_to?)`. A message sent with it lands in the other client's `read_replies` with `from` set to the sender, and its id is the same on both sides, so either can name it in `reply_to` or `since`. No agent here sees those messages. The posts count against the sender's post limit and are written to the audit log as `relay` lines, without their text. Switch either client off or revoke it and the tool goes away. Only you can set links (`links` in the agents section of discord.json).
 - **Labelled and untrusted.** A post reaches the agent as `grok on Agents`, starting with a line that says it's from an external agent and is untrusted input. Because that label comes first, a `Task:` or `name:` prefix in the text does nothing.
 - **Your agents only answer.** A new client's mapping has Sends off: the agent answers with `reply_to`, which goes back on that chat, but can't start a conversation there. Your approvals, questions, limit notices and `"discord"` sends never go to an Agents chat.
 - **Transport:** MCP Streamable HTTP, with JSON responses, at `http://127.0.0.1:7931/mcp` (`port` in the section). Health is at `/healthz`, and registration at `/register`. It listens on this machine only, so put a tunnel with its own access control (Cloudflare Access) in front of it. A request with an `Origin` header (a browser) is refused.
@@ -218,7 +219,7 @@ An AI agent that isn't on this machine, any MCP client (Grok, another company's 
   ```
 
   A caller with the key may add and revoke clients and switch the channel. Where new clients land (`default_to`) and its port are set only from the web UI.
-- **Registering.** With **Accept registrations** on (in the web UI, off by default), a client can ask to connect by itself. It makes its own token and sends only the token's hash:
+- **Registering.** With **Accept registrations** on (Setup › Channels › Outside agents in the web UI, off by default), a client can ask to connect by itself. It makes its own token and sends only the token's hash:
 
   ```
   curl -X POST https://<host>/register -H 'Content-Type: application/json' \
@@ -238,22 +239,22 @@ An AI agent that isn't on this machine, any MCP client (Grok, another company's 
 
 Once approved, the daemon starts Claude Code in that folder: in tmux when tmux is installed (`tmux attach -t peerlink-<folder>-s1` to see it), else in a new Terminal window. The new agent joins the space it was asked for (the asking agent's by default) and gets the first prompt as a message from whoever asked, so its replies go back there. A request you don't answer expires after a day, and the asking agent is told either way. Requests are kept in `~/.peerlink/spawns.json`.
 
-**Clearing its context:** open an agent's panel in the web UI and press **Clear context** on its **Controls** tab. The agent runs `/clear` once the turn it's in ends. It keeps its name, space and role, and is given back what it still owes peers. Only you can do this, from the web UI.
+**Clearing its context:** open the agent on the web UI's Agents page and press **Clear** in its **Controls** sheet (or **Clear context** in its ⋯ menu). The agent runs `/clear` once the turn it's in ends. It keeps its name, space and role, and is given back what it still owes peers. Only you can do this, from the web UI.
 
-**Ending:** open an agent's panel in the web UI and press **Terminate** on its **Controls** tab, or send `/kill <name>` on Discord and confirm with the button. The agent finishes the turn it's in, then its session exits. If it's still running a minute later, the daemon stops its process, after checking it is a Claude Code process. Agents can't end each other. Every termination is logged in `~/.peerlink/terminations.jsonl`, with who asked.
+**Ending:** open the agent on the web UI's Agents page and press **Terminate** in its **Controls** sheet (or its ⋯ menu), or send `/kill <name>` on Discord and confirm with the button. The agent finishes the turn it's in, then its session exits. If it's still running a minute later, the daemon stops its process, after checking it is a Claude Code process. Agents can't end each other. Every termination is logged in `~/.peerlink/terminations.jsonl`, with who asked.
 
 **Deleting an offline agent:** the Agents page lists the agents that aren't running under **Offline agents**, kept 60 days. **Delete** removes one with its settings, the spaces and links you set for it, and a lead it held in a folder where nothing runs now. Messages queued for it still wait for its folder's next agent. A running agent can't be deleted, because it would register again at once; end it first. An offline lead pinned at the top of its space has a **Remove** button that does the same, and if no record of the agent is left, it just stops leading.
 
-**Starting clean:** on the Controls page, tick what to clear and press **Start clean**. You can clear spaces, leads and links, offline agents, message history (messages still waiting to be delivered stay), tasks, and schedules. Rules, settings, chat channels, outside clients, the key and running agents are never touched. The files it changes are first copied to `~/.peerlink/backups/clean-<time>/`; to undo it, stop the daemon and copy them back. Like deleting agents and spaces, it works only from your browser. An agent holding the key is refused.
+**Starting clean:** on Setup › Controls, tick what to clear and press **Start clean**. You can clear spaces, leads and links, offline agents, message history (messages still waiting to be delivered stay), tasks, and schedules. Rules, settings, chat channels, outside clients, the key and running agents are never touched. The files it changes are first copied to `~/.peerlink/backups/clean-<time>/`; to undo it, stop the daemon and copy them back. Like deleting agents and spaces, it works only from your browser. An agent holding the key is refused.
 
 ## Schedules
 
 An agent's own timers (`CronCreate`, `/loop`) end with its session, so closing the terminal kills them. The daemon keeps schedules instead: at the time, or on a repeat, it sends a prompt to the agent in a folder, whether or not any terminal is open.
 
-- **Making one:** an agent calls its `schedule` tool with a `prompt` and either `cron` (five fields, minute hour day-of-month month weekday, like `0 9 * * 1-5`) or `at` (`in 30m`, `in 2h`, `in 1d`, or a local date and time like `2026-10-25 09:00`). It runs it itself unless it names another `agent`, or a `folder` whose agent (whichever runs there) should. You can add one yourself on the **Schedules** page of the web UI: pick an agent, or type a folder. Each agent's schedules also show on its panel's **Tasks** tab. Times are this machine's local time.
+- **Making one:** an agent calls its `schedule` tool with a `prompt` and either `cron` (five fields, minute hour day-of-month month weekday, like `0 9 * * 1-5`) or `at` (`in 30m`, `in 2h`, `in 1d`, or a local date and time like `2026-10-25 09:00`). It runs it itself unless it names another `agent`, or a `folder` whose agent (whichever runs there) should. You can add one yourself on the **Schedules** page of the web UI: pick an agent, or type a folder. Each agent's schedules also show on its page on Agents, in words. Times are this machine's local time.
 - **When it runs:** the prompt arrives as a message from `schedule c3`, to its agent. When that agent isn't running, the folder's other agent gets it. When no agent is running in the folder, the daemon starts Claude Code there (in tmux, as an approved `request_spawn` does) and the prompt waits for it. With `start: false` it doesn't start one; the prompt waits up to an hour for the next agent there.
 - **Approval:** a schedule an agent makes that may start an agent waits for you in the Inbox, or with **Approve** and **Deny** buttons on Discord (in a channel the agent's folder is in, else its space lead's), and expires after a day. Halfway there, the Discord post reminds you. One that only messages a running agent, or one you add, starts at once. The agent that made it is told what you decided; when it expires, so is its space lead, and `schedule list` shows the ones that ended in the past week.
-- **Seeing and cancelling:** the **Schedules** page lists them, with the next run, the last run and what happened, and a **Cancel** button. An agent lists its schedules and cancels its own (or its folder's) with the same tool. They're kept in `~/.peerlink/schedules.json`, so a daemon restart keeps them; a run missed while the daemon was down happens once when it's back.
+- **Seeing and cancelling:** the **Schedules** page lists them in words ("weekdays at 09:00"), with the next run, the last run and what happened. **Run now** sends one at once (a repeat keeps its next time), and a schedule's sheet has **Edit** and **Cancel schedule**. An agent lists its schedules and cancels its own (or its folder's) with the same tool. They're kept in `~/.peerlink/schedules.json`, so a daemon restart keeps them; a run missed while the daemon was down happens once when it's back.
 
 ## Usage limits
 
@@ -270,11 +271,11 @@ When an agent's turn dies on your Claude account's usage limit, peerlink holds e
 ## What you see at a glance
 
 - **At the bottom of the screen**, on its own row under Claude Code's hint row: `⇄ peerlink · <this agent> · <space> (in <parent>) · N peers · <version>`. Click it to open the web UI, signed in. It's a button rather than a link, so it works in terminals without hyperlink support. The desktop app shows it as the plugin's status instead.
-- **On each agent's card**, how full its context window is, highlighted from 80%. The peer list mentions it too when an agent is that full, since it may compact before it answers.
-- **Sessions in the same folder** show as one card, "+2 more sessions here". Its panel lists the others.
+- **On each agent's row**, how full its context window is, yellow past half and red from 80%. The peer list mentions it too when an agent is that full, since it may compact before it answers.
+- **Sessions in the same folder** each get a row; an agent's page lists the others in its folder.
 - **Each agent** shows how long it has been idle or working, like "idle 12m". Search finds agents by name, folder, branch or summary.
-- **Messages** can be filtered by space and by agent, and searched.
-- **From an agent's panel** you can message it, or send it a task, as yourself. Its reply shows in Messages. Only your browser can send as you: an agent holding the key is refused.
+- **Messages** lists conversations, the ones waiting on your reply first, and can be filtered by space and by agent, and searched. Under every conversation you're in there's a reply box.
+- **From an agent's page** you can message it, or send it a task, as yourself, and answer what it's waiting on you for. Its reply shows in Messages. Only your browser can send as you: an agent holding the key is refused.
 - **The page updates live:** the daemon streams changes to it within a second, and polls if the stream drops.
 
 ## How messages find their agent
@@ -301,9 +302,9 @@ Compaction, `/clear` and `/resume` reset what an agent remembers, but not what i
 
 ## Feedback: bugs and ideas
 
-This is for people developing peerlink. Turn it on with the `feedback` setting (Settings in the web UI, or `peerlink config feedback true`); it's off by default. Reports stay on your machine, so to tell the peerlink maintainers about a bug, open a [GitHub issue](https://github.com/dfunq/peerlink/issues) instead.
+This is for people developing peerlink. Turn it on with the `feedback` setting (Setup › Settings in the web UI, or `peerlink config feedback true`); it's off by default. Reports stay on your machine, so to tell the peerlink maintainers about a bug, open a [GitHub issue](https://github.com/dfunq/peerlink/issues) instead.
 
-With it on, agents call `report_issue` when peerlink itself misbehaves (a `bug`), or when it could work better for them (an `idea`). Every agent can, whatever its space. Each one lands in the **Feedback** page of the web UI, and the menu counts the new ones. Agents that start after you turn it on get the tool.
+With it on, agents call `report_issue` when peerlink itself misbehaves (a `bug`), or when it could work better for them (an `idea`). Every agent can, whatever its space. Each one lands in Setup › **Feedback** in the web UI, and the Setup gear counts the new ones. Agents that start after you turn it on get the tool.
 
 - **Triage:** mark each one accepted, dismissed or done, with an optional note.
 - **Accepting one** makes it a task for the agent that works on peerlink (the `issue_agent` setting, `peerlink` by default). It goes to that agent's folder, so it waits even when that agent isn't running. When the task is done, the feedback is too.
@@ -333,7 +334,7 @@ In Claude Code:
 | Command | |
 | --- | --- |
 | `/peerlink` or `/peerlink status` | Daemon, this agent, its summary |
-| `/peerlink web` | Open the web UI: you say **Open** in a dialog on screen, and your browser opens signed in. Its sidebar has Agents (an org chart of spaces), Spaces, Messages, Settings and Controls |
+| `/peerlink web` | Open the web UI: you say **Open** in a dialog on screen, and your browser opens signed in. Its tabs are Inbox, Agents (a list or an org chart of spaces), Tasks, Messages and Schedules; the gear opens Setup: Spaces, Rules, Channels, Settings, Controls and Feedback |
 | `/peerlink issues` | The last problems agents reported with peerlink |
 | `/peerlink restart` | Restart the daemon. Agents reconnect, and queued messages are kept |
 | `/peerlink rotate-key` | Make a new key, which signs out every browser |
@@ -442,7 +443,7 @@ You can change these in the web UI, with `peerlink config <name> <value>`, or in
 | `issue_agent` | peerlink | The agent that `report_issue` reports are also sent to, when it's live |
 | `sessions` | `{}` | Per-agent `nickname`, `role`, `muted` and `auto_wake`, keyed by Claude Code session id |
 | `folder_spaces` | `{}` | The space you put each folder in, such as `{"/Users/you/Repos/games": "acme"}` |
-| `space_parents` | `{}` | The space each space sits inside, set on the Spaces page (`""` for the top level) |
+| `space_parents` | `{}` | The space each space sits inside, set on Setup › Spaces (`""` for the top level) |
 | `folder_names` | `{}` | The name each folder's agents get, kept when you name an agent |
 | `local_name` | peerlink.local | The web UI's name on this machine: `http://peerlink.local:7899`. The daemon publishes it over Bonjour (`dns-sd` on macOS, `avahi-publish` on Linux), pointing at 127.0.0.1, with no sudo or hosts file. `peerlink.localhost:7899` also works in Chrome, Edge and Firefox on any OS. Sign-in links use the name once it resolves. Empty turns it off. A restart applies it |
 | `remotes`, `listen_host`, `token` | | Settings for linking daemons across machines |

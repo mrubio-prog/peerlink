@@ -54,8 +54,8 @@ PL.page('tasks', {
   `PL.render()` (redraw now from the last snapshot) or `refresh(true)` / `PL.refresh()` (fetch, then redraw) after an
   action.
 - `count` is called for every page on every render; keep it a cheap expression over the state. Return `''` for none.
-  Only the Inbox count is accent-coloured. Messages has no count yet: its page decides what it should count.
-- Desktop alerts for new Inbox items, the title's `(N)`, and the banners are the shell's.
+  Only the Inbox count is accent-coloured. Messages counts the conversations waiting on your reply.
+- Desktop alerts for new Inbox items (switched on Setup › Settings), the title's `(N)`, and the banners are the shell's.
 
 ## The state object
 
@@ -112,6 +112,10 @@ The page is redrawn whenever the daemon pushes a change, so a redraw must never 
 - `PL.paint(el, html, {force: true})` paints anyway: only for an explicit user action, like picking another item, and
   after asking `PL.dirty(el)`'s owner whether to drop the changes.
 - Prefer sheets for editing: a sheet lives outside `<main>`, owns its form until Save or Cancel, and is never redrawn.
+  A route change (Back, a link) closes it, and asks "Discard your unsaved changes?" first when it holds any; No puts
+  the route back. A sheet a route opens (a task's, a schedule's) passes `route: 'page'`: its page closes it when the
+  route goes, and the asking still holds. Escape closes a sheet wherever the focus is, Tab stays inside it, and a
+  repaint that takes away the focused button leaves the focus on the sheet's close button.
 - Keep open `<details>`, expanded cards and scroll positions in your own state (a `Set`), since a paint replaces the
   region's DOM.
 
@@ -131,25 +135,39 @@ Text arguments are escaped unless the name says HTML; anything an agent or a cha
 | `PL.go(hash)`, `PL.route` | navigate / the current route |
 | `PL.agentLink(nameOrId, label?)`, `PL.findAgent(nameOrId)`, `PL.agentHref(agent)` | a link to the agent's detail (plain text when no live agent matches) |
 | `PL.taskLink(tid)`, `PL.msgLink(mid)`, `PL.schedLink(cid)` | links to `#tasks/<tid>`, `#messages/<mid>`, `#schedules/<cid>` |
-| `PL.sheet.open({title, body, onSave, saveLabel, cancelLabel, danger, wide, onClose})` | a sheet (see `shell.js`); returns `{el, body, close, setError}`. `onSave(form, sheet)` returning `false` or an error string keeps it open |
+| `PL.sheet.open({title, body, onSave, saveLabel, cancelLabel, danger, wide, onClose, route})` | a sheet (see `shell.js`); returns `{el, body, close, setError}`. `onSave(form, sheet)` returning `false` or an error string keeps it open. `route: 'page'` for a sheet its route opens |
 | `PL.toast(text, {undo, kind, ms})` | a toast; `undo` is a function and adds an Undo button; `kind: 'bad'` for an error |
 | `PL.ask(text, {ok})`, `PL.tell(text)` | the yes/no dialog (the verb is the first word; Delete, Cancel, End... are red) and the notice. Plan: only for terminate and delete; prefer Undo |
 | `PL.badge(kind, text)` | a tinted badge: `ok`, `warn`, `bad`, `info`, `acc`, `mut` |
-| `PL.row({href, icon, tile, title, sub, value, chevron, attrs, cls})`, `PL.group(rows)` | grouped-list rows (`title`/`sub`/`value` are HTML) |
+| `PL.row({href, button, icon, tile, title, sub, value, chevron, attrs, cls})`, `PL.group(rows)` | grouped-list rows (`title`/`sub`/`value` are HTML); `button: true` makes a `<button>` row, `cls: 'on'` a picked one, `cls: 'danger'` a red one |
+| `PL.switch(on, label, attrs)`, `PL.switchRow({on, title, sub, icon, disabled, attrs})`, `PL.onSwitch(selector, async (el, on) => ok)` | the 48x28 toggle (a `button role=switch`), a row whose width flips it, and its handler: it flips at once, `ok === false` puts it back, then the page redraws. Pair it with an Undo toast |
+| `PL.field(label, inputHTML, hintHTML)` | a labelled field for a sheet |
+| `PL.helpBtn(label, attrs)` | the page's one `?` button, which opens its help sheet |
+| `PL.stat(k, v, {cls, extra, sub})` | a stat tile (in a `.stats` grid) |
+| `PL.callout(headHTML, bodyHTML)` | a tinted box with an icon: what's blocked, what happens if you don't answer |
+| `PL.inboxCard(item, {who})` | the card for something waiting on you, answered in place (the Inbox, an agent's "Waiting on you"). Its buttons are `data-iact` inside `data-ikind`/`data-iid`/`data-iwho`, which any page can use (Messages' reply choices, Schedules' Approve and Deny). Approving a start request asks first. `PL.waiting(st)` is the inbox less what was just answered |
+| `PL.questionOptions(text, kept)`, `PL.optionButtons(opts)`, `PL.itemType(item)`, `PL.itemLabel(item)` | a question's options, as one-tap buttons; what an item is |
+| `PL.taskBadge(task, {blocked})` | a task's status as a badge (Blocked when it's stuck, with `blocked: true`) |
+| `PL.pickAgent({title, names, lead, everyone, onPick})` | the agent picker sheet, with a search box |
+| `PL.party(msg, side)`, `PL.sender(msg)`, `PL.me(st)`, `PL.apiParties(party, st)`, `PL.chanLabel(name)` | who's at each end of a message: `you` (from here, a chat or an agent writing to you), a channel by its id, else the name |
 | `PL.label(text)` | a small-caps section label |
 | `PL.empty({icon, title, text, action})` | an empty state with at most one action `{label, href}` or `{label, attrs}` |
-| `PL.avatar(name, size)` | a round initial in one of six pastel pairs, picked by name |
+| `PL.avatar(name, size)`, `PL.avatarPair(aHTML, bHTML, size)` | a round initial in one of six pastel pairs, picked by name; two overlapping |
 | `PL.meter(pct, {text, warn, bad})` | a meter with its number shown |
-| `PL.icon(name, size)` | an inline SVG: `inbox agents tasks messages schedules setup search more x chev back check alert plus spaces rules channels settings controls feedback bell` |
-| `PL.ago(ts)`, `PL.time(ts)`, `PL.date(ts)`, `PL.tilde(path)` | `12m`; `Nov 19, 10:04`; with the weekday; `~/…` |
+| `PL.icon(name, size)` | an inline SVG: `inbox agents tasks messages schedules setup search more x chev back check alert plus spaces rules channels settings controls feedback bell help key file trash signout` |
+| `PL.ago(ts)`, `PL.time(ts)`, `PL.date(ts)`, `PL.short(ts)`, `PL.when(ts)`, `PL.tilde(path)` | `12m`; `Nov 19, 10:04`; with the weekday; a list's time (the time today, else the date); a time near now (`today 14:00`, `tomorrow 09:00`, `Mon 09:00`); `~/…` |
+| `PL.cron(expr)`, `PL.cadence(schedule)` | a cron in words (`weekdays at 09:00`, '' when it's too odd); a schedule's `{text, words, cron}` |
+| `PL.plural(n, one, many)` | `3 tasks` |
 | `PL.org(st)` | the spaces tree (groups, leads, nesting) the Agents chart and Setup's Spaces share |
 | `PL.paint`, `PL.held`, `PL.dirty`, `PL.settle` | edit protection, above |
 | `PL.pref(key, default)`, `PL.keep(key, value)` | this browser's preferences (`localStorage`, `peerlink.` prefix, guarded) |
 
-Shared task rows (`taskRow`, `taskLog`, `byLive`, `isLive`, `TSTATE`, and the Cancel/Reopen and Reassign handlers) are
-in `shell.js` because the Tasks list and the agent panel's Tasks tab both use them. So are `agentSelect`,
-`agentFolders`, `liveAgents`, `platLogo` and the platform logos (Tasks, Messages and Setup use them), and `grp` (the
-`details.plat` panels of Inbox and Feedback).
+Shared task pieces (`taskLog`, `byLive`, `isLive`, `TSTATE`, and the Cancel/Reopen and Reassign handlers) are in
+`shell.js` because the Tasks sheet and the agent detail's task sheet both use them: inside anything marked
+`data-task="<tid>"`, a button `data-tact="cancelled"` or `"open"` cancels (asking first) or reopens (with Undo), and
+`agentSelect('', 'data-treassign', 'Choose an agent…')` hands the task over as you pick, each with a toast. So are
+`agentSelect`, `entrySelect` (their placeholder is selected, so an untouched select isn't unsaved), `agentFolders`,
+`liveAgents`, `platLogo` and the platform logos (Tasks, Messages and Setup use them).
 
 ## Tokens and classes (`base.css`)
 
@@ -169,18 +187,22 @@ and input, segmented control and toast, card, sheet), `--tap` (44px), `--ease` (
 | `.badge` + `.b-ok` `.b-warn` `.b-bad` `.b-info` `.b-acc` `.b-mut` | tinted status badges |
 | `.chips` > `.chip` (`.on` or `aria-pressed=true` selected) | 36px filter pills |
 | `.seg` > `button`/`a` (`.on`) | segmented control, 2–4 choices |
-| `.card`, `.group` > `.row` (`.tile` `.row-main` `.row-t` `.row-s` `.row-v` `.chev`), `.label` | cards, grouped lists, section labels |
+| `.card`, `.group` > `.row` (`.tile` `.row-main` `.row-t` `.row-s` `.row-v` `.chev`), `button.row`, `.label` | cards, grouped lists (a row can be a button), section labels |
+| `.switch`, `.switch-row`, `.help-btn` | as `PL.switch`, `PL.switchRow`, `PL.helpBtn` draw them |
+| `.stats` > `.stat`, `.callout`, `.av-pair`, `.icard` | as `PL.stat`, `PL.callout`, `PL.avatarPair`, `PL.inboxCard` draw them |
+| `.sticky-h` | a section header that stays under the top bar while its list scrolls |
+| `.steps` > `.step` (`.step-n` `.step-t`, `.done`), `.radios` > `.radio`, `.dz`, `.sr-only` | numbered steps, radio cards, a sheet's danger zone (a Delete at the end), text only a screen reader reads |
+| `.empty-line` | a one-line "nothing here" inside a group |
 | `.empty-state`, `.av`, `.meter`, `.dot` (`.busy`) | as the helpers draw them |
 | `.banner.warn|bad|info` | the slim bars under the top bar |
 | `.link` | an in-text link (agent, task, ...) |
 
-The rest of `base.css` (`.task`, `details.plat`, `.pill`, `.tchip`, `.msgbar`, `.fl`, `.addline`, `.md`, ...) keeps
-today's page markup working; move your page to the components above and stop using them. Pick up spacing from the
-4px scale (8, 12, 16, 24); headings are 700 with -0.02em tracking; nothing under 12px.
+The rest of `base.css` is a task's record (`.tlog`, `.tblocked`), the platform logos (`.mlogo`) and markdown (`.md`).
+Pick up spacing from the 4px scale (8, 12, 16, 24); headings are 700 with -0.02em tracking; nothing under 12px.
 
 ## Checking a page
 
-`peerlink-redesign/tools/` has a scratch daemon with a made-up team (`demo_daemon.py`), `smoke.py` (opens every route,
-reports JavaScript errors) and `capture.py` (screenshots, desktop and phone, light and dark; add your page's shots to
-`SHOTS`). Run the daemon tests with `python3 -m unittest discover -s plugin/daemon` and check every file with
+Run a scratch daemon with a made-up team (above, and CONTRIBUTING's rule on made-up names) and open every route of
+your page at phone and desktop width, light and dark, with the browser's console open: a page error shows in its banner
+too. Run the daemon tests with `python3 -m unittest discover -s plugin/daemon` and check every file with
 `node --check plugin/daemon/ui/<file>.js`.

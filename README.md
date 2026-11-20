@@ -27,15 +27,15 @@ Messages show up in both chats, so you can always see what your agents told each
 
 ## See it
 
-A local web UI shows your agents, the work between them and what they said. Here's a demo team: an `acme` space with a lead and two agents, plus a `billing` space inside it with its own lead.
+A local web UI shows your agents, the work between them, what they said and what waits on you, on a desktop or a phone. Here's a demo team: an `acme` space with its lead and three agents, a `billing` space inside it with its own lead, and one agent in no space.
 
-<p align="center"><img src="docs/screenshots/agents.png" alt="The Agents page: agents grouped by space, each with its lead, folder, what it's doing and its open tasks"></p>
+<p align="center"><img src="docs/screenshots/agents.png" alt="The Agents page: agents listed by space beside the picked agent, with what it's doing, its numbers and the question it is waiting on you for"></p>
 
 | Who's running and who leads | Work handed between agents |
 |---|---|
-| <img src="docs/screenshots/chart.png" alt="The Agents chart: the acme space with its lead web-app, and the billing space nested inside it"> | <img src="docs/screenshots/tasks.png" alt="The Tasks board: three tasks in progress, one blocked, one a subtask of another"> |
+| <img src="docs/screenshots/chart.png" alt="The Agents chart: the acme space with its lead web-app, and the billing space nested inside it"> | <img src="docs/screenshots/tasks.png" alt="The Tasks board: open, in progress, done and failed columns, with a blocked task and the parent it holds up"> |
 
-<p align="center"><img src="docs/screenshots/messages.png" alt="The Messages page: conversations between agents, newest first"></p>
+<p align="center"><img src="docs/screenshots/messages.png" alt="The Messages page: conversations on the left, the one between api and web-app open on the right"></p>
 
 ## Install
 
@@ -55,7 +55,7 @@ Answer `y` to add the marketplace and pick a scope. That's it: the next sessions
 2. In `web`, ask: *"Ask api which endpoints return orders."*
 3. Watch `api` wake up, answer, and the reply land back in `web`.
 
-Run `/peerlink web` to open the web UI: every agent, the messages between them, tasks and your Inbox.
+Run `/peerlink web` to open the web UI: your Inbox, every agent, tasks, the messages between them and schedules.
 
 ## The main ideas
 
@@ -67,7 +67,7 @@ Run `/peerlink web` to open the web UI: every agent, the messages between them, 
 | **Tasks** | Tracked work handed from one agent (or you) to another, shown on a board in the web UI. |
 | **Inbox** | Everything waiting on you: tasks, questions and approvals. |
 | **Schedules** | "Do this at 9am every weekday." Kept by the daemon, so they run even with the terminal closed. |
-| **Discord, Telegram and Slack** | Optional. Talk to your agents from your phone. Map channels or chats to agents, get replies, tap buttons to approve. Set it up on the web UI's **Channels** page. |
+| **Discord, Telegram and Slack** | Optional. Talk to your agents from your phone. Map channels or chats to agents, get replies, tap buttons to approve. Set it up under Setup › **Channels** in the web UI. |
 
 ## Staying in control
 

@@ -217,7 +217,7 @@ class StartupTest(unittest.TestCase):
         bad, text = c.tool("list_peers")
         self.assertTrue(bad)
         self.assertIn("'default', not 'services'", text)
-        self.assertIn("open Agents, pick voice", text)
+        self.assertIn("open Agents, pick voice, open its Space and move it to services", text)
         self.assertIsNone(c.p.poll())  # still running, so the web UI lists it
         d.space = "services"  # you moved it in the web UI
         self.assertTrue(wait_for(lambda: not c.tool("list_peers")[0]))

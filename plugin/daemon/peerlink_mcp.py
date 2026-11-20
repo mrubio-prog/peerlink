@@ -173,8 +173,8 @@ class Daemon:
             why = f"this peer, {self.shown}, is set to space '{space}' in the web UI"
         else:
             why = f"its folder, {self.cwd}, is in space '{space}'"
-        self.wrong = (f"peerlink: {why}, not '{self.want_space}'. In the web UI, open Agents, pick {self.shown} and set its "
-                      f"space to {self.want_space}; this endpoint picks that up within seconds. Until then its tools refuse.")
+        self.wrong = (f"peerlink: {why}, not '{self.want_space}'. In the web UI, open Agents, pick {self.shown}, open its "
+                      f"Space and move it to {self.want_space}; this endpoint picks that up within seconds. Until then its tools refuse.")
         if self.wrong != was:
             log(self.wrong)
 
