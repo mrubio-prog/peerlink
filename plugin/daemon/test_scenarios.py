@@ -578,6 +578,30 @@ class ScenarioTest(unittest.TestCase):
             self.assertEqual(beat(wait)[0], 200)
         self.assertLess(time.time() - start, 1)
 
+    def test_you_run_a_schedule_now_from_the_web_ui_and_a_repeat_keeps_its_next_time(self):
+        rig = self.rig()
+        alex = rig.agent("alex", space="acme")
+        made = rig.user("POST", "/api/schedules", {"agent": "alex", "cron": "0 9 * * 1-5", "prompt": "Post the standup.", "start": False})["schedule"]
+        cid, next_run = made["id"], made["next_run"]
+        # An agent holding the key can't: only you run one out of turn.
+        code, out = rig.call("POST", f"/api/schedules/{cid}/run", {})
+        self.assertEqual(code, 403)
+        self.assertIn("web UI", out["error"])
+        ran = rig.user("POST", f"/api/schedules/{cid}/run", {})["schedule"]
+        self.assertEqual((ran["status"], ran["runs"], ran["next_run"]), ("active", 1, next_run))
+        self.assertTrue(ran["note"].startswith("sent to alex"), ran["note"])
+        self.assertIn("Post the standup.", alex.expect("Post the standup.")["text"])
+        # One waiting for your approval runs only once approved; an unknown one is not found.
+        asked = alex.call("POST", "/api/schedules", {"cron": "30 2 * * *", "prompt": "Nightly dry-run.", "start": True})[1]["schedule"]
+        self.assertEqual(asked["status"], "pending")
+        code, out = rig.call("POST", f"/api/schedules/{asked['id']}/run", {}, user=True)
+        self.assertEqual(code, 409)
+        self.assertIn("approve it first", out["error"])
+        self.assertEqual(rig.call("POST", "/api/schedules/c999/run", {}, user=True)[0], 404)
+        # A one-off run now is done.
+        once = rig.user("POST", "/api/schedules", {"agent": "alex", "at": "in 2h", "prompt": "Publish the changelog.", "start": False})["schedule"]
+        self.assertEqual(rig.user("POST", f"/api/schedules/{once['id']}/run", {})["schedule"]["status"], "done")
+
 
 if __name__ == "__main__":
     unittest.main()

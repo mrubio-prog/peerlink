@@ -5155,6 +5155,24 @@ def enable_schedule(cid):
     return 200, {"schedule": dict(c)}
 
 
+def run_schedule_now(cid):
+    """You run an active schedule now, from the web UI, as if its time had come: a repeat's next run stays when it
+    was, a one-off is done. While the usage limit holds it waits, as every schedule does."""
+    with lock:
+        c = schedules.get(cid)
+        if c is None:
+            return 404, {"error": f"no schedule {cid}"}
+        if c["status"] != "active":
+            return 409, {"error": f"{cid} is {c['status']}" + (": approve it first" if c["status"] == "pending" else "")}
+        if usage_limit:
+            return 409, {"error": "the usage limit holds: schedules wait until it lifts, or until you press Resume"}
+        log("schedule", cid, "run now, from the web UI")
+        start = fire_schedule(c, time.time())
+    if start:
+        start_for_schedule(start)
+    return 200, {"schedule": sched_view(c)}
+
+
 starting = {}  # folder -> when the daemon last started an agent there for a schedule
 name_claims = {}  # folder -> names the next agents to register there take: ones started for a schedule
 
@@ -6295,6 +6313,11 @@ class Handler(BaseHTTPRequestHandler):
             if not browser:
                 return self.reply(403, {"error": "only your user turns a schedule back on, from the web UI; ask for a new one with schedule"})
             return self.reply(*enable_schedule(rest[1]))
+        # Only you run a schedule out of turn, from the web UI: an agent's own run comes at its time.
+        if len(rest) == 3 and rest[0] == "schedules" and rest[2] == "run" and method == "POST":
+            if not browser or self.key_ok():
+                return self.reply(403, {"error": "only your user runs a schedule now, from the web UI"})
+            return self.reply(*run_schedule_now(rest[1]))
         if len(rest) == 3 and rest[0] == "schedules" and rest[2] == "cancel" and method == "POST":
             if browser and not self.key_ok():
                 code, out = cancel_schedule(rest[1])
