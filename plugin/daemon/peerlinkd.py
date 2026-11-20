@@ -43,12 +43,16 @@ import telegramlink  # noqa: E402
 import slacklink  # noqa: E402
 import agentslink  # noqa: E402
 from cronlib import cron_next, parse_cron  # noqa: E402,F401
-from webui import UI_HTML  # noqa: E402
+from webui import UI_HTML, UI_DIR, UI_FILES  # noqa: E402
 
 # A fingerprint of the daemon's code: this file and the modules beside it together.
 _h = hashlib.sha256()
 for _name in ("peerlinkd.py", "chatlink.py", "discordlink.py", "telegramlink.py", "slacklink.py", "cronlib.py", "webui.py"):
     with open(os.path.join(_here, _name), "rb") as _f:
+        _h.update(_f.read())
+# The web UI's files (ui/*.html, *.css, *.js) are part of it too.
+for _name in UI_FILES:
+    with open(os.path.join(UI_DIR, _name), "rb") as _f:
         _h.update(_f.read())
 CODE = _h.hexdigest()[:16]
 HOME = os.environ.get("PEERLINK_HOME", os.path.expanduser("~/.peerlink"))
